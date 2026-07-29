@@ -10,9 +10,10 @@
 <meta name="theme-color" content="#0f0f1a">
 <meta name="application-name" content="ShowTracker">
 <link rel="manifest" href="manifest.json">
-<!-- Firebase SDK for community custom shows database -->
+<!-- Firebase SDK for community custom shows database + user accounts -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='30' fill='%236c5ce7'/%3E%3Ctext x='90' y='120' font-size='90' text-anchor='middle' fill='white'%3E▶%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-startup-image" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect width='1125' height='2436' fill='%230f0f1a'/%3E%3Ctext x='562' y='1218' font-size='60' text-anchor='middle' fill='%23a29bfe' font-family='sans-serif'%3EShowTracker%3C/text%3E%3C/svg%3E">
   media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
@@ -283,6 +284,7 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
     </button>
     <button class="nav-item" data-page="calendar" onclick="navigate('calendar')"><span class="nav-icon">📅</span>Calendar</button>
     <button class="nav-item" data-page="stats" onclick="navigate('stats')"><span class="nav-icon">📊</span>Stats</button>
+    <button class="nav-item" id="authBtn" onclick="openAuthModal()" title="Sign in to sync across devices" style="font-size:9px"><span class="nav-icon" id="authIcon">👤</span><span id="authLabel">Sign In</span></button>
   </nav>
 
   <!-- HOME -->
@@ -460,6 +462,31 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
   </div>
 </div>
 
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <h3 id="authModalTitle">🔐 Sign In</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:14px" id="authModalSub">Sign in to sync your shows across devices.</p>
+    <div id="authForm" style="display:flex;flex-direction:column;gap:10px">
+      <input id="authEmail" type="email" placeholder="Email" style="padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+      <input id="authPassword" type="password" placeholder="Password (min 6 chars)" style="padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+      <div id="authError" style="font-size:12px;color:var(--error);display:none"></div>
+      <button class="btn btn-primary" id="authSubmitBtn" onclick="handleAuth()">Sign In</button>
+      <button class="btn btn-secondary" id="authToggleBtn" onclick="toggleAuthMode()">Create an account instead</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:4px 0"><hr style="flex:1;border:none;border-top:1px solid var(--border)"><span style="font-size:11px;color:var(--text3)">or</span><hr style="flex:1;border:none;border-top:1px solid var(--border)"></div>
+      <button class="btn btn-secondary" onclick="signInWithGoogle()" style="justify-content:center">🔵 Sign in with Google</button>
+    </div>
+    <div id="authLoggedIn" style="display:none;text-align:center;padding:10px">
+      <p style="font-size:16px;margin-bottom:4px">✅ Signed in</p>
+      <p id="authUserEmail" style="font-size:13px;color:var(--text2);margin-bottom:12px"></p>
+      <button class="btn btn-secondary" onclick="signOutUser()">Sign Out</button>
+    </div>
+    <div class="modal-actions" style="margin-top:8px">
+      <button class="btn btn-secondary" onclick="closeAuthModal()" style="flex:0;width:100%">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- RATING MODAL -->
 <div class="modal-overlay" id="ratingModal">
   <div class="modal">
@@ -516,6 +543,8 @@ const FIREBASE_CONFIG = {
 };
 
 let firestore = null;
+let auth = null;
+let currentUser = null;
 let firebaseReady = false;
 
 try {
@@ -528,6 +557,179 @@ try {
 } catch(e) {
   console.log('📡 Community shows: Firebase not configured (optional)');
 }
+
+// Initialize Firebase Auth
+if (firebaseReady) {
+  try {
+    auth = firebase.auth();
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      updateAuthUI();
+      if (user) {
+        // On login, merge local data into cloud
+        syncLocalToCloud();
+        loadCloudData();
+      }
+    });
+  } catch(e) {
+    console.log('📡 Auth not available');
+  }
+}
+
+// Update the nav auth button based on login state
+function updateAuthUI() {
+  const btn = document.getElementById('authBtn');
+  const icon = document.getElementById('authIcon');
+  const label = document.getElementById('authLabel');
+  if (currentUser) {
+    icon.textContent = '🔐';
+    label.textContent = currentUser.email?.split('@')[0] || 'User';
+    btn.title = 'Signed in — tap for account options';
+  } else {
+    icon.textContent = '👤';
+    label.textContent = 'Sign In';
+    btn.title = 'Sign in to sync across devices';
+  }
+}
+
+// Auth modal
+function openAuthModal() {
+  document.getElementById('authModal').classList.add('open');
+  const loggedIn = document.getElementById('authLoggedIn');
+  const authForm = document.getElementById('authForm');
+  if (currentUser) {
+    authForm.style.display = 'none';
+    loggedIn.style.display = 'block';
+    document.getElementById('authUserEmail').textContent = currentUser.email;
+  } else {
+    authForm.style.display = 'flex';
+    loggedIn.style.display = 'none';
+    document.getElementById('authEmail').value = '';
+    document.getElementById('authPassword').value = '';
+    document.getElementById('authError').style.display = 'none';
+  }
+}
+function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
+
+let authMode = 'signin';
+function toggleAuthMode() {
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('authModalTitle').textContent = authMode === 'signin' ? '🔐 Sign In' : '🔐 Create Account';
+  document.getElementById('authModalSub').textContent = authMode === 'signin' ? 'Sign in to sync your shows across devices.' : 'Create an account to save your data in the cloud.';
+  document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('authToggleBtn').textContent = authMode === 'signin' ? 'Create an account instead' : 'Sign in instead';
+}
+
+async function handleAuth() {
+  if (!auth || !firebaseReady) { showAuthError('Firebase not configured. Set it up to enable accounts.'); return; }
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { showAuthError('Please enter email and password.'); return; }
+  if (password.length < 6) { showAuthError('Password must be at least 6 characters.'); return; }
+  
+  const btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = authMode === 'signin' ? 'Signing in...' : 'Creating account...';
+  hideAuthError();
+  
+  try {
+    if (authMode === 'signin') {
+      await auth.signInWithEmailAndPassword(email, password);
+      toast('Signed in! Your data is now synced.', '🔐');
+    } else {
+      await auth.createUserWithEmailAndPassword(email, password);
+      toast('Account created and signed in!', '🎉');
+    }
+    closeAuthModal();
+  } catch(e) {
+    showAuthError(e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
+}
+
+async function signInWithGoogle() {
+  if (!auth || !firebaseReady) { showAuthError('Firebase not configured.'); return; }
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+    toast('Signed in with Google!', '🔐');
+    closeAuthModal();
+  } catch(e) {
+    showAuthError(e.message);
+  }
+}
+
+function signOutUser() {
+  if (auth) {
+    auth.signOut();
+    toast('Signed out. Your data is still saved locally.', '👋');
+    closeAuthModal();
+  }
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function hideAuthError() {
+  document.getElementById('authError').style.display = 'none';
+}
+
+// Cloud sync: save user data to Firestore when logged in
+async function saveCloudData() {
+  if (!currentUser || !firebaseReady || !firestore) return;
+  try {
+    await firestore.collection('users').doc(currentUser.uid).set({
+      data: JSON.parse(JSON.stringify(state)),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) { console.log('Cloud save failed:', e.message); }
+}
+
+async function loadCloudData() {
+  if (!currentUser || !firebaseReady || !firestore) return;
+  try {
+    const doc = await firestore.collection('users').doc(currentUser.uid).get();
+    if (doc.exists) {
+      const cloud = doc.data().data;
+      if (cloud) {
+        // Merge: cloud data takes precedence, but keep local any shows not in cloud
+        const merged = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        // Cloud shows
+        Object.assign(merged.shows, cloud.shows || {});
+        Object.assign(merged.episodes, cloud.episodes || {});
+        Object.assign(merged.ratings, cloud.ratings || {});
+        // Local shows not in cloud
+        Object.keys(state.shows).forEach(k => { if (!merged.shows[k]) merged.shows[k] = state.shows[k]; });
+        Object.keys(state.episodes).forEach(k => { if (!merged.episodes[k]) merged.episodes[k] = state.episodes[k]; });
+        Object.keys(state.ratings).forEach(k => { if (!merged.ratings[k]) merged.ratings[k] = state.ratings[k]; });
+        merged.dismissed = [...new Set([...(cloud.dismissed||[]), ...(state.dismissed||[])])];
+        merged.seenAired = { ...(state.seenAired||{}), ...(cloud.seenAired||{}) };
+        state = merged;
+        saveState();
+        if (currentPage) navigate(currentPage);
+        return;
+      }
+    }
+    // First login: push local data to cloud
+    await saveCloudData();
+  } catch(e) { console.log('Cloud load failed:', e.message); }
+}
+
+async function syncLocalToCloud() {
+  if (!currentUser || !firebaseReady || !firestore) return;
+  try {
+    const doc = await firestore.collection('users').doc(currentUser.uid).get();
+    if (!doc.exists) {
+      // First time — push local data up
+      await saveCloudData();
+    }
+  } catch(e) { console.log('Sync failed:', e.message); }
+}
+
+// === END AUTH ===
 
 // Save a custom show to the community database
 async function saveCommunityShow(showData) {
@@ -628,7 +830,11 @@ function loadState() {
   try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch(e) {}
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveState() { 
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); 
+  // Sync to cloud if logged in (fire-and-forget)
+  if (currentUser && firebaseReady) saveCloudData();
+}
 function loadTrendingCache() {
   try { const raw = sessionStorage.getItem(TRENDING_KEY); if (raw) return JSON.parse(raw); } catch(e) {}
   return null;
