@@ -1,7 +1,7 @@
 // ShowTracker Service Worker — Cache-first offline strategy
 // Dynamic base path: works at root (/), subpath (/showtracker/), or any deployment URL
 
-const CACHE = 'showtracker-v2';
+const CACHE = 'showtracker-v3';
 const SW_PATH = self.location.pathname;
 const BASE = SW_PATH.substring(0, SW_PATH.lastIndexOf('/') + 1);
 
@@ -51,9 +51,20 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request)
         .then(res => {
+          // Don't cache TMDB error responses (success:false with status 200)
           const clone = res.clone();
-          caches.open(CACHE).then(cache => cache.put(event.request, clone));
-          return res;
+          return clone.text().then(body => {
+            try {
+              const json = JSON.parse(body);
+              if (json.success === false) {
+                // Error response — don't cache, return original
+                return res;
+              }
+            } catch(e) {}
+            // Valid response — cache it
+            caches.open(CACHE).then(cache => cache.put(event.request, clone));
+            return res;
+          });
         })
         .catch(() => caches.match(event.request))
     );
