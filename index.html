@@ -10,6 +10,9 @@
 <meta name="theme-color" content="#0f0f1a">
 <meta name="application-name" content="ShowTracker">
 <link rel="manifest" href="manifest.json">
+<!-- Firebase SDK for community custom shows database -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='30' fill='%236c5ce7'/%3E%3Ctext x='90' y='120' font-size='90' text-anchor='middle' fill='white'%3E▶%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-startup-image" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect width='1125' height='2436' fill='%230f0f1a'/%3E%3Ctext x='562' y='1218' font-size='60' text-anchor='middle' fill='%23a29bfe' font-family='sans-serif'%3EShowTracker%3C/text%3E%3C/svg%3E">
   media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
@@ -335,6 +338,7 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
       <button class="filter-pill" data-filter="plan" onclick="filterMyShows('plan')">Plan to Watch</button>
       <button class="filter-pill" data-filter="completed" onclick="filterMyShows('completed')">Completed</button>
       <button class="filter-pill" data-filter="hold" onclick="filterMyShows('hold')">On Hold</button>
+      <button class="btn btn-primary btn-sm" onclick="openCustomShowModal()" style="margin-left:auto;font-size:11px">➕ Custom Show</button>
     </div>
     <div class="shows-grid" id="myShowsGrid"></div>
     <div class="empty-state" id="myShowsEmpty" style="display:none">
@@ -430,6 +434,32 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
   </div>
 </div>
 
+<!-- CUSTOM SHOW MODAL -->
+<div class="modal-overlay" id="customShowModal">
+  <div class="modal">
+    <h3>➕ Add Custom Show</h3>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:14px">Perfect for South African shows not on TMDB.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input id="csName" placeholder="Show name (e.g. Skeem Saam)" style="padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+      <div style="display:flex;gap:10px">
+        <input id="csSeasons" type="number" min="1" max="50" value="1" style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;font-family:inherit;outline:none" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+        <label style="display:flex;align-items:center;color:var(--text3);font-size:13px;gap:4px">📅 Seasons</label>
+      </div>
+      <div id="csEpisodeInputs" style="display:flex;flex-direction:column;gap:6px">
+        <div class="cs-season-row" style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:12px;color:var(--text2);min-width:60px">Season 1:</span>
+          <input type="number" class="cs-ep-count" min="1" max="200" value="10" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+          <span style="font-size:11px;color:var(--text3)">episodes</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeCustomShowModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addCustomShow()">➕ Add Show</button>
+    </div>
+  </div>
+</div>
+
 <!-- RATING MODAL -->
 <div class="modal-overlay" id="ratingModal">
   <div class="modal">
@@ -468,6 +498,120 @@ const DEFAULT_DATA = { shows:{}, episodes:{}, ratings:{}, customShows:[], dismis
 
 let state = loadState();
 let currentPage = 'home';
+
+// ============================================================
+// FIREBASE — Community Custom Shows Database
+// ============================================================
+// 1. Go to https://console.firebase.google.com/ → Create a project
+// 2. Add a Firestore Database → Start in test mode
+// 3. Register a web app → copy the config object below
+// 4. Paste your config values below
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+let firestore = null;
+let firebaseReady = false;
+
+try {
+  if (typeof firebase !== 'undefined' && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY') {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    firestore = firebase.firestore();
+    firebaseReady = true;
+    console.log('🔥 Firebase connected — community shows enabled');
+  }
+} catch(e) {
+  console.log('📡 Community shows: Firebase not configured (optional)');
+}
+
+// Save a custom show to the community database
+async function saveCommunityShow(showData) {
+  if (!firebaseReady) return;
+  try {
+    const docId = showData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    await firestore.collection('communityShows').doc(docId).set({
+      name: showData.name,
+      seasons: showData.customSeasons || [],
+      number_of_seasons: showData.number_of_seasons || 0,
+      number_of_episodes: showData.number_of_episodes || 0,
+      addedBy: 'community',
+      addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      searchTerms: [showData.name.toLowerCase(), ...showData.name.toLowerCase().split(' ')]
+    }, { merge: true });
+    console.log('✅ Community show saved:', showData.name);
+  } catch(e) {
+    console.log('⚠️ Could not save to community database:', e.message);
+  }
+}
+
+// Search community shows
+async function searchCommunityShows(query) {
+  if (!firebaseReady) return [];
+  try {
+    const q = query.toLowerCase();
+    const snapshot = await firestore.collection('communityShows')
+      .where('searchTerms', 'array-contains', q)
+      .limit(10)
+      .get();
+    
+    if (snapshot.empty) {
+      // Fallback: get all and do client-side search
+      const all = await firestore.collection('communityShows').limit(20).get();
+      return all.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => s.name?.toLowerCase().includes(q))
+        .slice(0, 5);
+    }
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    console.log('⚠️ Community search failed:', e.message);
+    return [];
+  }
+}
+
+// Adopt a community show into the user's list
+function adoptCommunityShow(communityShow) {
+  // Prevent duplicate adoption
+  const alreadyAdopted = Object.values(state.shows).some(s => s.communityId === communityShow.id);
+  if (alreadyAdopted) { toast('Already in your list!', '📺'); return; }
+  
+  const id = 'custom_' + communityShow.id + '_' + Date.now().toString(36);
+  const seasons = communityShow.seasons || [];
+  let totalEps = 0;
+  seasons.forEach(s => totalEps += s.episodeCount || 0);
+  
+  state.shows[id] = {
+    custom: true,
+    community: true,
+    communityId: communityShow.id,
+    name: communityShow.name,
+    poster_path: null,
+    first_air_date: '',
+    genres: ['Custom'],
+    genre_ids: [],
+    overview: `Community show: ${communityShow.name}`,
+    vote_average: 0,
+    number_of_seasons: communityShow.number_of_seasons || seasons.length,
+    number_of_episodes: totalEps || communityShow.number_of_episodes || 0,
+    customSeasons: seasons,
+    status: STATUSES.WATCHING,
+    dateAdded: Date.now(),
+    lastUpdated: Date.now(),
+    progress: 0,
+    lastEpisodeWatched: null
+  };
+  if (!state.episodes[id]) state.episodes[id] = {};
+  saveState();
+  updateBadge();
+  toast(`Added "${communityShow.name}" to your shows!`, '📥');
+  renderMyShows();
+}
 let currentDetailId = null;
 let currentDetailData = null;
 let calendarDate = new Date();
@@ -617,6 +761,90 @@ function addToMyShows(d) {
 function removeShow(id) { delete state.shows[id]; delete state.episodes[id]; saveState(); updateBadge(); toast('Removed','🗑️'); renderMyShows(); }
 function updateShowStatus(id, status) { if (state.shows[id]) { state.shows[id].status=status; state.shows[id].lastUpdated=Date.now(); saveState(); updateBadge(); renderMyShows(); } }
 function updateBadge() { const c=Object.keys(state.shows).length; const b=document.getElementById('myListBadge'); b.textContent=c; b.classList.toggle('show',c>0); }
+
+// ============================================================
+// CUSTOM SHOWS
+// ============================================================
+let csRandomId = 0;
+
+function openCustomShowModal() {
+  document.getElementById('customShowModal').classList.add('open');
+  document.getElementById('csName').value = '';
+  document.getElementById('csSeasons').value = 1;
+  updateCsEpisodeInputs();
+  setTimeout(() => document.getElementById('csName').focus(), 200);
+}
+function closeCustomShowModal() {
+  document.getElementById('customShowModal').classList.remove('open');
+}
+function updateCsEpisodeInputs() {
+  const seasons = parseInt(document.getElementById('csSeasons').value) || 1;
+  const container = document.getElementById('csEpisodeInputs');
+  container.innerHTML = '';
+  for (let i = 1; i <= Math.min(seasons, 50); i++) {
+    const row = document.createElement('div');
+    row.className = 'cs-season-row';
+    row.style.cssText = 'display:flex;gap:8px;align-items:center';
+    row.innerHTML = `<span style="font-size:12px;color:var(--text2);min-width:60px">Season ${i}:</span>
+      <input type="number" class="cs-ep-count" min="1" max="200" value="10" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+      <span style="font-size:11px;color:var(--text3)">episodes</span>`;
+    container.appendChild(row);
+  }
+}
+// Listen for season count changes to update episode inputs
+document.getElementById('csSeasons')?.addEventListener('input', updateCsEpisodeInputs);
+
+function addCustomShow() {
+  const name = document.getElementById('csName').value.trim();
+  if (!name) { toast('Please enter a show name', '⚠️'); return; }
+  
+  const id = 'custom_' + (++csRandomId) + '_' + Date.now().toString(36);
+  const seasonCount = parseInt(document.getElementById('csSeasons').value) || 1;
+  const epInputs = document.querySelectorAll('.cs-ep-count');
+  
+  // Build seasons array with episode counts
+  const seasons = [];
+  let totalEps = 0;
+  for (let i = 0; i < Math.min(seasonCount, 50); i++) {
+    const epCount = parseInt(epInputs[i]?.value) || 10;
+    seasons.push({ seasonNumber: i + 1, episodeCount: epCount, name: `Season ${i + 1}` });
+    totalEps += epCount;
+  }
+  
+  state.shows[id] = {
+    custom: true,
+    name: name,
+    poster_path: null,
+    first_air_date: '',
+    genres: ['Custom'],
+    genre_ids: [],
+    overview: `Custom show: ${name}`,
+    vote_average: 0,
+    number_of_seasons: seasonCount,
+    number_of_episodes: totalEps,
+    customSeasons: seasons,
+    status: STATUSES.WATCHING,
+    dateAdded: Date.now(),
+    lastUpdated: Date.now(),
+    progress: 0,
+    lastEpisodeWatched: null
+  };
+  if (!state.episodes[id]) state.episodes[id] = {};
+  saveState();
+  updateBadge();
+  closeCustomShowModal();
+  
+  // Sync to community database so others can find this show
+  saveCommunityShow({
+    name: name,
+    number_of_seasons: seasonCount,
+    number_of_episodes: totalEps,
+    customSeasons: seasons
+  });
+  
+  toast(`"${name}" added to your shows and shared with the community!`, '➕');
+  renderMyShows();
+}
 
 // ============================================================
 // EPISODES
@@ -804,7 +1032,8 @@ function renderHome() {
       const lastEp = s.lastEpisodeWatched ? `S${s.lastEpisodeWatched.split('-')[0]}E${s.lastEpisodeWatched.split('-')[1]}` : '';
       const totalEps = s.number_of_episodes||'?';
       const wc = Object.keys(state.episodes[id]||{}).length;
-      return `<div class="continue-watching-card" onclick="showDetail('${s.tmdbId}')">
+      const clickId = s.custom ? id : s.tmdbId;
+      return `<div class="continue-watching-card" onclick="showDetail('${clickId}')">
         ${p?`<img class="cw-poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="cw-poster" style="display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--text3)">📺</div>`}
         <div class="cw-info"><div class="cw-title">${s.name}</div><div class="cw-sub">${lastEp||'Just started'} · ${wc}/${totalEps} eps</div>
         <div class="cw-progress"><div class="bar" style="width:${s.progress}%"></div></div></div>
@@ -813,13 +1042,17 @@ function renderHome() {
   } else contSection.style.display='none';
 
   const grid = document.getElementById('myShowsPreview');
-  const shows = Object.values(state.shows).slice(0,6);
+  const shows = Object.entries(state.shows).slice(0,6);
   if (shows.length) {
-    grid.innerHTML = shows.map(s => {
+    grid.innerHTML = shows.map(([id,s]) => {
+      const isCustom = s.custom;
+      const clickId = isCustom ? id : s.tmdbId;
       const p = posterUrl(s.poster_path);
-      return `<div class="show-card" onclick="showDetail('${s.tmdbId}')">
-        ${p?`<img class="poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="poster-placeholder">📺</div>`}
-        <div class="info"><div class="title">${s.name}</div><div class="meta"><span class="year">${(s.first_air_date||'').slice(0,4)}</span></div>
+      return `<div class="show-card" onclick="showDetail('${clickId}')">
+        ${isCustom
+          ? `<div class="poster-placeholder" style="background:linear-gradient(135deg,var(--primary),var(--accent));font-size:28px;color:#fff">${s.name.charAt(0).toUpperCase()}</div>`
+          : (p ? `<img class="poster" src="${p}" alt="${s.name}" loading="lazy">` : `<div class="poster-placeholder">📺</div>`)}
+        <div class="info"><div class="title">${s.name}</div><div class="meta"><span class="year">${isCustom?'Custom':(s.first_air_date||'').slice(0,4)}</span></div>
         ${s.number_of_episodes>0?`<div class="progress"><div class="bar" style="width:${s.progress||0}%"></div></div>`:''}</div>
       </div>`;
     }).join('');
@@ -852,16 +1085,23 @@ function renderMyShows() {
   if (!shows.length) { grid.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
   grid.innerHTML = shows.map(([id,s]) => {
-    const p = posterUrl(s.poster_path); const wc = Object.keys(state.episodes[id]||{}).length; const total = s.number_of_episodes||'?';
+    const isCustom = s.custom;
+    const clickId = isCustom ? id : s.tmdbId;
+    const wc = Object.keys(state.episodes[id]||{}).length;
+    const total = s.number_of_episodes||'?';
     const sl = {watching:'Watching',plan:'Plan to Watch',completed:'Completed',hold:'On Hold'};
-    return `<div class="show-card" onclick="showDetail('${s.tmdbId}')">
-      ${p?`<img class="poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="poster-placeholder">📺</div>`}
+    return `<div class="show-card" onclick="showDetail('${clickId}')">
+      ${isCustom
+        ? `<div class="poster-placeholder" style="background:linear-gradient(135deg,var(--primary),var(--accent));font-size:32px;color:#fff">${s.name.charAt(0).toUpperCase()}</div>`
+        : (posterUrl(s.poster_path)
+          ? `<img class="poster" src="${posterUrl(s.poster_path)}" alt="${s.name}" loading="lazy">`
+          : `<div class="poster-placeholder">📺</div>`)}
       <div class="actions" onclick="event.stopPropagation()">
         <button class="action-btn" onclick="showStatusMenu('${id}')" title="Change status">↻</button>
         <button class="action-btn" onclick="removeShow('${id}')" title="Remove">✕</button>
       </div>
       <div class="info"><div class="title">${s.name}</div>
-      <div class="meta"><span class="year">${(s.first_air_date||'').slice(0,4)}</span><span style="color:var(--text3)">·</span><span style="color:var(--primary-light);font-size:10px">${sl[s.status]||'Watching'}</span></div>
+      <div class="meta">${isCustom?'<span class="year" style="color:var(--accent)">Custom</span>':`<span class="year">${(s.first_air_date||'').slice(0,4)}</span>`}<span style="color:var(--text3)">·</span><span style="color:var(--primary-light);font-size:10px">${sl[s.status]||'Watching'}</span></div>
       ${total!=='?'&&total>0?`<div class="progress"><div class="bar" style="width:${s.progress||0}%"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px">${wc}/${total}</div>`:''}</div>
     </div>`;
   }).join('');
@@ -891,23 +1131,54 @@ function clearSearch() {
 async function performSearch(query) {
   const results = document.getElementById('searchResults');
   results.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">🔍 Searching...</div>';
-  const data = await tmdbFetch(`/search/tv?query=${encodeURIComponent(query)}&page=1`);
-  if (!data||!data.results) { results.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">Search failed. Please try again.</div>'; return; }
-  if (!data.results.length) { results.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">No shows found. Try a different search!</div>'; return; }
-  results.innerHTML = `<div class="search-section-title">Results (${data.results.length})</div>` +
-    data.results.slice(0,20).map(s => {
-      const id = generateShowId(s.id);
-      const added = !!state.shows[id];
-      const p = posterUrl(s.poster_path, 'w92');
-      return `<div class="search-result-item">
-        ${p?`<img class="sr-poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="sr-poster" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text3)">📺</div>`}
-        <div class="sr-info" onclick="showDetail('${s.id}')">
-          <div class="sr-title">${s.name}</div>
-          <div class="sr-meta">${s.first_air_date?.slice(0,4)||'?'} · ⭐ ${s.vote_average?.toFixed(1)||'?'}</div>
-        </div>
-        <button class="sr-add ${added?'added':''}" data-id="${id}" onclick="quickAddShow(${s.id}, '${s.name.replace(/'/g,"\\'")}', '${s.poster_path||''}', '${s.first_air_date?.slice(0,4)||''}')">${added?'✓':'+'}</button>
-      </div>`;
-    }).join('');
+  // Fetch from both TMDB and community database in parallel
+  const [tmdbData, communityResults] = await Promise.all([
+    tmdbFetch(`/search/tv?query=${encodeURIComponent(query)}&page=1`),
+    searchCommunityShows(query)
+  ]);
+  
+  if ((!tmdbData||!tmdbData.results) && (!communityResults || !communityResults.length)) {
+    results.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">No shows found. Try a different search!</div>';
+    return;
+  }
+  
+  let html = '';
+  
+  // TMDB results
+  if (tmdbData && tmdbData.results && tmdbData.results.length) {
+    html += `<div class="search-section-title">📺 TMDB Results (${tmdbData.results.length})</div>` +
+      tmdbData.results.slice(0,15).map(s => {
+        const id = generateShowId(s.id);
+        const added = !!state.shows[id];
+        const p = posterUrl(s.poster_path, 'w92');
+        return `<div class="search-result-item">
+          ${p?`<img class="sr-poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="sr-poster" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text3)">📺</div>`}
+          <div class="sr-info" onclick="showDetail('${s.id}')">
+            <div class="sr-title">${s.name}</div>
+            <div class="sr-meta">${s.first_air_date?.slice(0,4)||'?'} · ⭐ ${s.vote_average?.toFixed(1)||'?'}</div>
+          </div>
+          <button class="sr-add ${added?'added':''}" data-id="${id}" onclick="quickAddShow(${s.id}, '${s.name.replace(/'/g,"\\'")}', '${s.poster_path||''}', '${s.first_air_date?.slice(0,4)||''}')">${added?'✓':'+'}</button>
+        </div>`;
+      }).join('');
+  }
+  
+  // Community results
+  if (communityResults && communityResults.length) {
+    html += `<div class="search-section-title" style="margin-top:12px">🌍 Community Database (${communityResults.length})</div>` +
+      communityResults.map(s => {
+        const alreadyHas = Object.values(state.shows).some(sh => sh.custom && sh.communityId === s.id);
+        return `<div class="search-result-item">
+          <div class="sr-poster" style="display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:6px;color:#fff">${s.name.charAt(0).toUpperCase()}</div>
+          <div class="sr-info">
+            <div class="sr-title">${s.name} <span style="font-size:10px;color:var(--accent);font-weight:600">🌍 Community</span></div>
+            <div class="sr-meta">${s.number_of_seasons||'?'} Seasons · ${s.number_of_episodes||'?'} Episodes</div>
+          </div>
+          <button class="sr-add ${alreadyHas?'added':''}" onclick="${alreadyHas ? '' : `adoptCommunityShow(${JSON.stringify(s).replace(/'/g,"\\'")}); this.textContent='✓'; this.className='sr-add added'`}">${alreadyHas?'✓':'📥'}</button>
+        </div>`;
+      }).join('');
+  }
+  
+  results.innerHTML = html || '<div style="text-align:center;padding:20px;color:var(--text3)">No shows found. Try a different search!</div>';
 }
 async function quickAddShow(tmdbId, name, posterPath, year) {
   const id = generateShowId(tmdbId);
@@ -1193,6 +1464,48 @@ async function showDetail(tmdbIdOrHero) {
   document.getElementById('detailBackdropImg').style.display = 'none';
   document.getElementById('detailOverview').textContent = '';
 
+  // Check if this is a custom show ID (starts with 'custom_')
+  const isCustom = typeof tmdbIdOrHero === 'string' && tmdbIdOrHero.startsWith('custom_');
+  
+  if (isCustom) {
+    currentDetailId = tmdbIdOrHero;
+    const show = state.shows[tmdbIdOrHero];
+    if (!show) { document.getElementById('detailTitle').textContent = 'Show not found'; toast('Show not found','⚠️'); return; }
+    
+    document.getElementById('detailBackdropImg').style.display = 'none';
+    document.getElementById('detailTitle').textContent = show.name;
+    document.getElementById('detailMeta').innerHTML = `
+      <span style="color:var(--accent)">Custom Show</span>
+      <span>${show.number_of_seasons||0} Seasons</span>
+      <span>${show.number_of_episodes||0} Episodes</span>`;
+    document.getElementById('detailOverview').textContent = `Track your progress for ${show.name}. Mark episodes as you watch them!`;
+    
+    const trackBtn = document.getElementById('detailTrackBtn');
+    trackBtn.textContent = '✓ Tracking'; trackBtn.className='btn btn-secondary';
+    const rateBtn = document.getElementById('detailRateBtn');
+    rateBtn.style.display = 'none';
+    
+    // Add community update button if Firebase is configured
+    if (firebaseReady && show.community) {
+      const actions = document.getElementById('detailActions');
+      const updateBtn = document.createElement('button');
+      updateBtn.className = 'btn btn-secondary';
+      updateBtn.textContent = '📝 Suggest Update';
+      updateBtn.onclick = () => suggestCommunityUpdate(show.communityId, show.name);
+      actions.appendChild(updateBtn);
+    }
+    
+    const wc = Object.keys(state.episodes[tmdbIdOrHero]||{}).length;
+    document.getElementById('detailStats').innerHTML = `
+      <div class="stat-card"><div class="stat-value">${show.progress||0}%</div><div class="stat-label">Progress</div></div>
+      <div class="stat-card"><div class="stat-value">${wc}</div><div class="stat-label">Episodes Watched</div></div>
+      <div class="stat-card"><div class="stat-value">${show.number_of_seasons||0}</div><div class="stat-label">Total Seasons</div></div>
+      <div class="stat-card"><div class="stat-value">${show.number_of_episodes||0}</div><div class="stat-label">Total Episodes</div></div>`;
+    renderCustomEpisodeList(tmdbIdOrHero);
+    window.scrollTo({ top:0, behavior:'smooth' });
+    return;
+  }
+
   const tmdbId = tmdbIdOrHero;
   currentDetailId = generateShowId(tmdbId);
   // Only fetch show data — seasons are fetched in renderEpisodeList
@@ -1215,6 +1528,7 @@ async function showDetail(tmdbIdOrHero) {
   const tracked = !!state.shows[id];
   const trackBtn = document.getElementById('detailTrackBtn');
   const rateBtn = document.getElementById('detailRateBtn');
+  rateBtn.style.display = '';
   if (tracked) {
     const sl = {watching:'Watching',plan:'Plan to Watch',completed:'Completed',hold:'On Hold'};
     trackBtn.textContent = `✓ ${sl[state.shows[id].status]||'Tracking'}`; trackBtn.className='btn btn-secondary';
@@ -1302,6 +1616,45 @@ function toggleSeason(header) {
 // ============================================================
 // TRACKING / DETAIL
 // ============================================================
+// Render episodes for custom shows (no TMDB fetch needed)
+function renderCustomEpisodeList(showId) {
+  const container = document.getElementById('episodeContainer');
+  const show = state.shows[showId];
+  if (!show || !show.customSeasons) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">No episode data available.</div>';
+    return;
+  }
+  
+  container.innerHTML = show.customSeasons.map((season, si) => {
+    const seasonNum = season.seasonNumber || (si + 1);
+    const epCount = season.episodeCount || 10;
+    const eps = state.episodes[showId] || {};
+    let watchedInSeason = 0;
+    let epHtml = '';
+    for (let ei = 1; ei <= epCount; ei++) {
+      const epKey = `${seasonNum}-${ei}`;
+      const isWatched = !!eps[epKey];
+      if (isWatched) watchedInSeason++;
+      epHtml += `<div class="episode-item">
+        <div class="ep-number ${isWatched?'watched':''}">${ei}</div>
+        <div class="ep-info">
+          <div class="ep-title ${isWatched?'watched':''}">Episode ${ei}</div>
+          <div class="ep-date">Season ${seasonNum}</div>
+        </div>
+        <button class="watch-btn ${isWatched?'watched':''}" onclick="event.stopPropagation(); toggleEpisode('${showId}', ${seasonNum}, ${ei})">${isWatched?'✓':'○'}</button>
+      </div>`;
+    }
+    const seasonProgress = Math.round((watchedInSeason / epCount) * 100);
+    return `<div class="season-header" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.season-toggle').classList.toggle('open')">
+      <span class="season-toggle">▶</span>
+      <span>Season ${seasonNum}</span>
+      <div class="season-progress"><div class="bar" style="width:${seasonProgress}%"></div></div>
+      <span class="season-count">${watchedInSeason}/${epCount}</span>
+    </div>
+    <div class="season-episodes open">${epHtml}</div>`;
+  }).join('');
+}
+
 async function toggleTracking() {
   const id = currentDetailId;
   if (state.shows[id]) {
@@ -1320,6 +1673,36 @@ async function toggleTracking() {
   }
   if (currentDetailData) { addShowToState(currentDetailData); toast('Added to My Shows!', '✅'); showDetail(currentDetailData.id); }
 }
+// Suggest an update to a community show (add seasons/episodes)
+function suggestCommunityUpdate(communityId, showName) {
+  const newSeasons = prompt(`How many new seasons to add for "${showName}"?`, '1');
+  if (!newSeasons || isNaN(newSeasons) || parseInt(newSeasons) < 1) return;
+  const epsPerSeason = prompt('Episodes per new season?', '10');
+  if (!epsPerSeason || isNaN(epsPerSeason) || parseInt(epsPerSeason) < 1) return;
+  
+  const epCount = parseInt(epsPerSeason);
+  const seasonCount = parseInt(newSeasons);
+  const newSeasonsArr = [];
+  for (let i = 0; i < seasonCount; i++) {
+    newSeasonsArr.push({ seasonNumber: i + 1, episodeCount: epCount, name: `Season ${i + 1}` });
+  }
+  
+  if (firebaseReady) {
+    firestore.collection('communityShows').doc(communityId).update({
+      seasons: firebase.firestore.FieldValue.arrayUnion(...newSeasonsArr),
+      number_of_seasons: firebase.firestore.FieldValue.increment(seasonCount),
+      number_of_episodes: firebase.firestore.FieldValue.increment(seasonCount * epCount),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+      toast('Update submitted! Refresh to see changes.', '📝');
+    }).catch(e => {
+      toast('Could not submit update. Try again later.', '⚠️');
+    });
+  } else {
+    toast('Community database not configured. Set up Firebase to share updates.', '⚠️');
+  }
+}
+
 function closeDetail() { document.getElementById('showDetail').classList.remove('active'); navigate(currentPage); }
 
 // ============================================================
