@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ShowTracker — Icon Generator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f0f1a;color:#e8eef5;font-family:Segoe UI,-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
+h1{font-size:28px;margin-bottom:4px;background:linear-gradient(135deg,#a29bfe,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sub{color:#6a7a92;margin-bottom:24px;font-size:14px}
+.card{background:#1a1a2e;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:32px;max-width:600px;width:100%;margin-bottom:20px}
+.card h2{font-size:18px;margin-bottom:16px}
+canvas{display:block;margin:0 auto 16px;border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.sizes{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.size-btn{padding:8px 18px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:transparent;color:#a0b0c8;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.size-btn:hover{background:#1e2a3e;color:#e8eef5}
+.size-btn.active{background:#6c5ce7;color:#fff;border-color:#6c5ce7}
+.download-btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border:none;border-radius:12px;background:#6c5ce7;color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:all .25s;font-family:inherit}
+.download-btn:hover{background:#5541d7;box-shadow:0 4px 20px rgba(108,92,231,.3)}
+.download-btn:active{transform:scale(.95)}
+.meta{font-size:12px;color:#6a7a92;margin-top:12px;text-align:center;line-height:1.6}
+ol{text-align:left;padding-left:20px;line-height:1.8;font-size:13px;color:#a0b0c8}
+ol li{margin-bottom:4px}
+code{background:rgba(108,92,231,.15);color:#a29bfe;padding:2px 6px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<h1>🎨 ShowTracker Icon Generator</h1>
+<p class="sub">Generate PNG app icons for Play Store & App Store submission</p>
+
+<div class="card">
+  <h2>📐 1. Choose size & download</h2>
+  <div class="sizes" id="sizeSelector">
+    <button class="size-btn active" data-size="192">192×192 (PWA)</button>
+    <button class="size-btn" data-size="512">512×512 (Play Store)</button>
+    <button class="size-btn" data-size="1024">1024×1024 (App Store)</button>
+  </div>
+  <canvas id="iconCanvas"></canvas>
+  <div style="text-align:center">
+    <button class="download-btn" onclick="downloadIcon()">⬇ Download PNG</button>
+  </div>
+  <div class="meta" id="iconMeta"></div>
+</div>
+
+<div class="card">
+  <h2>📋 2. What to do with these icons</h2>
+  <ol>
+    <li><strong>manifest.json</strong> — The references are already set to <code>/icons/icon-192.png</code> and <code>/icons/icon-512.png</code></li>
+    <li>Save the downloaded files into your <code>TVTime/icons/</code> folder</li>
+    <li><strong>Google Play Store</strong> needs the 512×512 as the app icon and a 1024×1024 for the feature graphic</li>
+    <li><strong>Apple App Store</strong> needs the 1024×1024 version</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2>🚀 3. Generate Android App with PWABuilder</h2>
+  <ol>
+    <li>Go to <a href="https://pwabuilder.com" target="_blank" style="color:#a29bfe">pwabuilder.com</a></li>
+    <li>Enter your PWA URL (use <strong>ngrok</strong> to expose localhost, or deploy to GitHub Pages)</li>
+    <li>Click <strong>"Package for Stores"</strong> → <strong>"Android"</strong></li>
+    <li>Download the generated <code>.aab</code> (Android App Bundle)</li>
+    <li>Upload to <strong>Google Play Console</strong> → <strong>Create new app</strong> → <strong>Production</strong></li>
+  </ol>
+</div>
+
+<script>
+// Purple-to-pink gradient icon with play button
+function drawIcon(canvas, size) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = size;
+  canvas.height = size;
+  
+  const cx = size / 2, cy = size / 2;
+  const radius = size / 2 - 1;
+  
+  // Rounded rectangle clip
+  const cornerRadius = size * 0.15;
+  ctx.beginPath();
+  ctx.moveTo(cornerRadius, 0);
+  ctx.lineTo(size - cornerRadius, 0);
+  ctx.quadraticCurveTo(size, 0, size, cornerRadius);
+  ctx.lineTo(size, size - cornerRadius);
+  ctx.quadraticCurveTo(size, size, size - cornerRadius, size);
+  ctx.lineTo(cornerRadius, size);
+  ctx.quadraticCurveTo(0, size, 0, size - cornerRadius);
+  ctx.lineTo(0, cornerRadius);
+  ctx.quadraticCurveTo(0, 0, cornerRadius, 0);
+  ctx.closePath();
+  ctx.clip();
+  
+  // Gradient
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0, '#6c5ce7');
+  grad.addColorStop(1, '#fd79a8');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  
+  // Inner shadow (slightly darker edges)
+  const shadowGrad = ctx.createRadialGradient(cx, cy, size * 0.3, cx, cy, radius);
+  shadowGrad.addColorStop(0, 'rgba(255,255,255,0.12)');
+  shadowGrad.addColorStop(1, 'rgba(0,0,0,0.25)');
+  ctx.fillStyle = shadowGrad;
+  ctx.fillRect(0, 0, size, size);
+  
+  // Play triangle
+  const triSize = size * 0.28;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(0.05); // slight tilt
+  ctx.beginPath();
+  ctx.moveTo(-triSize * 0.65, -triSize * 0.85);
+  ctx.lineTo(triSize * 0.75, 0);
+  ctx.lineTo(-triSize * 0.65, triSize * 0.85);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.shadowColor = 'rgba(0,0,0,0.2)';
+  ctx.shadowBlur = size * 0.04;
+  ctx.fill();
+  ctx.restore();
+}
+
+let currentSize = 192;
+
+function updateCanvas() {
+  const canvas = document.getElementById('iconCanvas');
+  drawIcon(canvas, currentSize);
+  canvas.style.width = Math.min(currentSize, 200) + 'px';
+  canvas.style.height = Math.min(currentSize, 200) + 'px';
+  document.getElementById('iconMeta').textContent = `${currentSize}×${currentSize} · ${(currentSize * currentSize * 4 / 1024).toFixed(0)}KB raw`;
+}
+
+function downloadIcon() {
+  const canvas = document.getElementById('iconCanvas');
+  const link = document.createElement('a');
+  link.download = `icon-${currentSize}.png`;
+  link.href = canvas.toDataURL('image/png');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+document.querySelectorAll('.size-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSize = parseInt(btn.dataset.size);
+    updateCanvas();
+  });
+});
+
+updateCanvas();
+</script>
+</body>
+</html>

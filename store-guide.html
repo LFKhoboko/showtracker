@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ShowTracker — Store Submission Guide</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f0f1a;color:#e8eef5;font-family:Segoe UI,-apple-system,sans-serif;padding:40px 20px;display:flex;flex-direction:column;align-items:center}
+.guide{max-width:720px;width:100%}
+h1{font-size:28px;margin-bottom:4px;background:linear-gradient(135deg,#a29bfe,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center}
+.sub{color:#6a7a92;text-align:center;margin-bottom:32px;font-size:14px}
+.path{background:#1a1a2e;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:24px;margin-bottom:16px}
+.path h2{font-size:20px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.path .cost{display:inline-block;background:rgba(0,184,148,.15);color:#00b894;padding:2px 10px;border-radius:8px;font-size:12px;font-weight:600;margin-left:8px}
+.path .cost.once{background:rgba(108,92,231,.15);color:#a29bfe}
+.path .cost.year{background:rgba(253,121,168,.15);color:#fd79a8}
+.path .cost.free{background:rgba(0,206,201,.15);color:#00cec9}
+.step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start}
+.step:last-child{border-bottom:none}
+.step-num{width:28px;height:28px;border-radius:50%;background:#6c5ce7;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;margin-top:2px}
+.step-num.alt{background:rgba(108,92,231,.2);color:#a29bfe;font-size:14px}
+.step-content{flex:1;min-width:0}
+.step-content strong{font-size:14px}
+.step-content p{font-size:13px;color:#a0b0c8;margin-top:4px;line-height:1.5}
+.step-content code{background:rgba(108,92,231,.12);color:#a29bfe;padding:1px 5px;border-radius:4px;font-size:12px}
+.step-content .tag{display:inline-block;padding:1px 8px;border-radius:6px;font-size:10px;font-weight:600;margin-right:4px}
+.tag.ios{background:rgba(108,92,231,.15);color:#a29bfe}
+.tag.android{background:rgba(0,206,201,.15);color:#00cec9}
+.tag.both{background:rgba(0,184,148,.15);color:#00b894}
+.checklist{background:#1a1a2e;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:24px;margin-bottom:16px}
+.checklist h2{font-size:18px;margin-bottom:12px}
+.checklist-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;font-size:13px;color:#a0b0c8}
+.checklist-item .box{width:18px;height:18px;border:2px solid #6c5ce7;border-radius:4px;flex-shrink:0;margin-top:1px}
+.checklist-item.done .box{background:#6c5ce7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:12px 0}
+.pricing-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;text-align:center}
+.pricing-card .amount{font-size:24px;font-weight:700;color:#a29bfe}
+.pricing-card .label{font-size:11px;color:#6a7a92;margin-top:4px}
+.pricing-card .note{font-size:10px;color:#6a7a92;margin-top:2px}
+.note-box{background:rgba(253,121,168,.08);border:1px solid rgba(253,121,168,.15);border-radius:10px;padding:14px;font-size:13px;color:#fd79a8;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start}
+.note-box .icon{font-size:18px;flex-shrink:0}
+.note-box.green{background:rgba(0,184,148,.08);border-color:rgba(0,184,148,.15);color:#00b894}
+</style>
+</head>
+<body>
+<div class="guide">
+<h1>📱 ShowTracker — Store Submission Guide</h1>
+<p class="sub">From PWA to Play Store & App Store — step by step</p>
+
+<div class="note-box green">
+  <span class="icon">✅</span>
+  <div><strong>You're already 90% there.</strong> ShowTracker already has a service worker, offline caching, responsive design, PWA manifest, and iOS meta tags. All we need is the store wrapper.</div>
+</div>
+
+<!-- PATH 1: PWA -->
+<div class="path">
+  <h2>🆓 Path 0: PWA (Already done!) <span class="cost free">R0 — Free</span></h2>
+  <div class="step">
+    <div class="step-num alt">✓</div>
+    <div class="step-content">
+      <strong>Already works on both platforms</strong>
+      <p>Your ShowTracker is already a fully installable PWA. On <strong>Android</strong>, open Chrome → ⋮ → Add to Home Screen. On <strong>iOS</strong>, open Safari → Share → Add to Home Screen. No store fee, no review, no waiting.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num alt">✓</div>
+    <div class="step-content">
+      <strong>Service worker installed</strong>
+      <p>Offline support with SPA navigation fallback, cache-first for assets, network-first for TMDB API. Already production-ready.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PATH 2: Android Play Store -->
+<div class="path">
+  <h2>🤖 Path 1: Google Play Store <span class="cost once">R425 — Once</span></h2>
+  
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <strong>Pay the developer fee</strong>
+      <span class="tag android">Android</span>
+      <p>Go to <strong>play.google.com/console</strong> → Create account → Pay <strong>R425 once</strong> (lifetime). No annual renewal needed. Approval takes a few minutes.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <strong>Generate PNG icons</strong>
+      <span class="tag both">Both</span>
+      <p>Open <a href="/icon-generator.html" style="color:#a29bfe">icon-generator.html</a> in your browser → download the 192×192, 512×512, and 1024×1024 PNGs. Drop them into <code>TVTime/icons/</code>.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <strong>Make your PWA publicly accessible</strong>
+      <span class="tag android">Android</span>
+      <p>PWABuilder needs a public URL. Two options:</p>
+      <p style="margin-top:4px"><strong>Option A (easiest):</strong> Install <code>ngrok</code> → <code>ngrok http 8080</code> → copy the https URL</p>
+      <p><strong>Option B (permanent):</strong> Push your code to GitHub → enable GitHub Pages → use that URL</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <strong>Generate Android App Bundle</strong>
+      <span class="tag android">Android</span>
+      <p>Go to <strong>pwabuilder.com</strong> → paste your public URL → click "Package for Stores" → <strong>Android</strong> → download the <code>.aab</code> file. PWABuilder handles Bubblewrap/TWA automatically — no Java or Android SDK needed on your machine.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <strong>Upload to Play Console</strong>
+      <span class="tag android">Android</span>
+      <p>In Google Play Console → Create app → Set up store listing (app name: <strong>ShowTracker</strong>, description, screenshots) → Upload your <code>.aab</code> → Set up <strong>App signing</strong> (Google handles it) → Submit for review. Takes 2–4 hours for first review.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PATH 3: Huawei AppGallery -->
+<div class="path" style="border-color: rgba(206,17,38,.2)">
+  <h2>📱 Path 2: Huawei AppGallery <span class="cost free" style="background:rgba(206,17,38,.12);color:#ff6b81">R0 — FREE</span></h2>
+  
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <strong>Register as a Huawei Developer — FREE</strong>
+      <span class="tag android">Huawei</span>
+      <p>Go to <strong>developer.huawei.com</strong> → Register → Complete <strong>Real-Name Identity Verification</strong> (submit your ID/passport, takes 1–3 days). <strong>Cost: R0</strong>. No annual fees, no listing fees. This is the cheapest store to publish on.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <strong>Use the same Android package from PWABuilder</strong>
+      <span class="tag android">Huawei</span>
+      <p>Huawei AppGallery accepts standard Android <code>.aab</code> and <code>.apk</code> files natively. The exact same TWA package generated by PWABuilder.com for Google Play works perfectly on AppGallery. <strong>No changes needed</strong> — ShowTracker doesn't rely on Google Play Services (GMS), so it runs great on Huawei devices.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <strong>Set up digital asset links (for full-screen TWA)</strong>
+      <span class="tag android">Both</span>
+      <p>To hide the browser URL bar in your TWA wrapper, you need to host a file called <code>.well-known/assetlinks.json</code> on your domain containing your signing certificate fingerprint. This applies to <strong>both Google Play and AppGallery</strong>. PWABuilder provides this file in its output.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <strong>Upload to AppGallery Connect</strong>
+      <span class="tag android">Huawei</span>
+      <p>Go to <strong>AppGallery Connect</strong> (developer.huawei.com/consumer/cn/console) → Create app → Set up store listing → Upload your <code>.aab</code> → Submit for review. Review usually takes <strong>1–3 days</strong> for the first submission.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <strong>Optional: Add HMS Push Kit for notifications</strong>
+      <span class="tag android">Huawei</span>
+      <p>If you want push notifications on Huawei devices (since they don't have Google's FCM), integrate <strong>Huawei Push Kit</strong> via HMS Core. This requires a few lines of native code in your TWA project. PWABuilder's output includes a config file where you can add HMS dependencies. The Push Kit is <strong>free</strong> with monthly quotas.</p>
+    </div>
+  </div>
+</div>
+
+<!-- PATH 4: iOS App Store -->
+<div class="path">
+  <h2>🍎 Path 3: Apple App Store <span class="cost year">R1,700/year</span></h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <strong>Pay the developer fee</strong>
+      <span class="tag ios">iOS</span>
+      <p>Go to <strong>developer.apple.com/programs</strong> → Enroll → Pay <strong>R1,700 per year</strong>. This must be renewed annually to keep your app on the store.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <strong>Get a Mac (or rent one in the cloud)</strong>
+      <span class="tag ios">iOS</span>
+      <p>You need Xcode to build the iOS app. Options:</p>
+      <p style="margin-top:4px"><strong>Own a Mac?</strong> Great — install Xcode from the App Store.</p>
+      <p><strong>No Mac?</strong> Use <strong>MacStadium</strong> (R200–400/mo) or <strong>GitHub Actions</strong> (free with a Mac runner — I can set this up for you).</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <strong>Install & set up Capacitor</strong>
+      <span class="tag ios">iOS</span>
+      <p>On your Mac (or CI):</p>
+      <p style="margin-top:4px;background:rgba(108,92,231,.08);padding:8px 12px;border-radius:8px;font-family:monospace;font-size:12px">
+        npm install @capacitor/core @capacitor/cli<br>
+        npx cap init ShowTracker com.yourname.showtracker<br>
+        npx cap add ios<br>
+        npx cap copy<br>
+        npx cap open ios
+      </p>
+      <p style="margin-top:4px">This generates an Xcode project that loads ShowTracker inside a WKWebView.</p>
+    </div>
+  </div>
+  
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <strong>Add push notifications (to pass Apple review)</strong>
+      <span class="tag ios">iOS</span>
+      <p>Apple's <strong>Guideline 4.2</strong> requires more than just a website in a WebView. The easiest native feature to add:</p>
+      <p style="margin-top:4px"><code>npm install @capacitor/push-notifications</code></p>
+      <p>This lets you send notifications when newly aired episodes drop. Pair it with <code>@capacitor/share</code> for native sharing and you'll comfortably pass review.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <strong>Build & submit</strong>
+      <span class="tag ios">iOS</span>
+      <p>In Xcode → Select <strong>Any iOS Device</strong> → Product → Archive → Upload to App Store Connect → Fill in App Store metadata → Submit for review (takes 1–2 days).</p>
+    </div>
+  </div>
+</div>
+
+<!-- CHECKLIST -->
+<div class="checklist">
+  <h2>📋 Master Checklist</h2>
+  
+  <div class="checklist-item done">
+    <div class="box">✓</div>
+    <div><strong>PWA Manifest</strong> — Already set up with icons, display mode, categories, shortcuts, screenshots</div>
+  </div>
+  <div class="checklist-item done">
+    <div class="box">✓</div>
+    <div><strong>Service Worker</strong> — Offline caching, SPA navigation fallback, TMDB network-first</div>
+  </div>
+  <div class="checklist-item done">
+    <div class="box">✓</div>
+    <div><strong>iOS Meta Tags</strong> — apple-mobile-web-app-capable, viewport-fit=cover, splash screen, safari status bar</div>
+  </div>
+  <div class="checklist-item">
+    <div class="box"></div>
+    <div><strong>Generate PNG icons</strong> — Use <a href="/icon-generator.html" style="color:#a29bfe">icon-generator.html</a> → download → save to <code>TVTime/icons/</code></div>
+  </div>
+  <div class="checklist-item">
+    <div class="box"></div>
+    <div><strong>App screenshots</strong> — 2–8 screenshots (1080×1920 portrait) showing Home, My Shows, Search, For You, Calendar, Stats</div>
+  </div>
+  <div class="checklist-item">
+    <div class="box"></div>
+    <div><strong>Privacy policy</strong> — Simple page explaining you use TMDB API but don't collect user data. Host on GitHub Pages.</div>
+  </div>
+  <div class="checklist-item">
+    <div class="box"></div>
+    <div><strong>PWABuilder Android package</strong> — Go to pwabuilder.com with public URL → download .aab → upload to Play Console</div>
+  </div>
+  <div class="checklist-item">
+    <div class="box"></div>
+    <div><strong>Huawei Developer account</strong> — Register at developer.huawei.com (R0, free, needs ID verification)</div>
+  </div>
+  <div class="checklist-item">
+    <div class="box"></div>
+    <div><strong>Upload same .aab to AppGallery Connect</strong> — Same PWABuilder output works, no changes needed</div>
+  </div>
+  <div class="checklist-item">
+    <div class="box"></div>
+    <div><strong>Capacitor iOS build</strong> — Set up on Mac with Xcode, add push notifications, archive & upload</div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div class="checklist">
+  <h2>💰 Total Costs (in Rands)</h2>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <div class="amount">R0</div>
+      <div class="label">PWA (already done)</div>
+      <div class="note">Free, works everywhere</div>
+    </div>
+    <div class="pricing-card" style="border-color:rgba(206,17,38,.3)">
+      <div class="amount" style="color:#ff6b81">R0</div>
+      <div class="label">Huawei AppGallery</div>
+      <div class="note">Free, one-time ID verification</div>
+    </div>
+    <div class="pricing-card">
+      <div class="amount">R425</div>
+      <div class="label">Google Play Store</div>
+      <div class="note">Once, lifetime access</div>
+    </div>
+    <div class="pricing-card">
+      <div class="amount">R1,700/yr</div>
+      <div class="label">Apple App Store</div>
+      <div class="note">Annual renewal</div>
+    </div>
+    <div class="pricing-card">
+      <div class="amount" style="font-size:16px">R0–R400/mo</div>
+      <div class="label">Mac cloud rental (if needed)</div>
+      <div class="note">Only for iOS builds</div>
+    </div>
+  </div>
+</div>
+
+<div class="note-box" style="border-color:rgba(206,17,38,.15);color:#e8eef5">
+  <span class="icon">💡</span>
+  <div>
+    <strong>Recommended strategy (cheapest → most expensive):</strong> 
+    <br>① Launch PWA (done) — tell friends to Add to Home Screen, costs <strong>R0</strong><br>
+    ② <strong>Huawei AppGallery for R0</strong> — publish first for free, same PWABuilder .aab file, no modifications needed<br>
+    ③ <strong>Play Store for R425</strong> — once you've validated the app, spend R425 to reach Google's wider audience<br>
+    ④ <strong>App Store for R1,700/yr</strong> — do this last once you know people actually use it
+  </div>
+</div>
+
+<div class="note-box green">
+  <span class="icon">📱</span>
+  <div>
+    <strong>TMDB Attribution:</strong> This product uses the TMDB API but is not endorsed or certified by TMDB. Make sure you include "Powered by TMDB" in your app description and store listing — I've already added it to the app's footer/UI. Both stores require this.
+  </div>
+</div>
+
+</div>
+</body>
+</html>
