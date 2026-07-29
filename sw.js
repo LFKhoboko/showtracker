@@ -51,19 +51,22 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request)
         .then(res => {
-          // Don't cache TMDB error responses (success:false with status 200)
-          const clone = res.clone();
-          return clone.text().then(body => {
+          // Read body as text so we can inspect and re-use it
+          return res.text().then(body => {
+            // Create a fresh, re-readable Response from the text
+            const fresh = new Response(body, {
+              status: res.status,
+              statusText: res.statusText,
+              headers: res.headers
+            });
+            // Don't cache TMDB error responses (success:false with status 200)
             try {
               const json = JSON.parse(body);
-              if (json.success === false) {
-                // Error response — don't cache, return original
-                return res;
-              }
+              if (json.success === false) return fresh;
             } catch(e) {}
             // Valid response — cache it
-            caches.open(CACHE).then(cache => cache.put(event.request, clone));
-            return res;
+            caches.open(CACHE).then(cache => cache.put(event.request, fresh.clone()));
+            return fresh;
           });
         })
         .catch(() => caches.match(event.request))
