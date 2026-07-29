@@ -1488,8 +1488,11 @@ async function showDetail(tmdbIdOrHero) {
     // Add community update button if Firebase is configured
     if (firebaseReady && show.community) {
       const actions = document.getElementById('detailActions');
+      // Remove any existing update button to prevent duplicates
+      const oldBtn = actions.querySelector('.community-update-btn');
+      if (oldBtn) oldBtn.remove();
       const updateBtn = document.createElement('button');
-      updateBtn.className = 'btn btn-secondary';
+      updateBtn.className = 'btn btn-secondary community-update-btn';
       updateBtn.textContent = '📝 Suggest Update';
       updateBtn.onclick = () => suggestCommunityUpdate(show.communityId, show.name);
       actions.appendChild(updateBtn);
@@ -1674,7 +1677,9 @@ async function toggleTracking() {
   if (currentDetailData) { addShowToState(currentDetailData); toast('Added to My Shows!', '✅'); showDetail(currentDetailData.id); }
 }
 // Suggest an update to a community show (add seasons/episodes)
-function suggestCommunityUpdate(communityId, showName) {
+async function suggestCommunityUpdate(communityId, showName) {
+  if (!firebaseReady) { toast('Community database not configured.', '⚠️'); return; }
+  
   const newSeasons = prompt(`How many new seasons to add for "${showName}"?`, '1');
   if (!newSeasons || isNaN(newSeasons) || parseInt(newSeasons) < 1) return;
   const epsPerSeason = prompt('Episodes per new season?', '10');
@@ -1682,24 +1687,34 @@ function suggestCommunityUpdate(communityId, showName) {
   
   const epCount = parseInt(epsPerSeason);
   const seasonCount = parseInt(newSeasons);
-  const newSeasonsArr = [];
-  for (let i = 0; i < seasonCount; i++) {
-    newSeasonsArr.push({ seasonNumber: i + 1, episodeCount: epCount, name: `Season ${i + 1}` });
-  }
   
-  if (firebaseReady) {
-    firestore.collection('communityShows').doc(communityId).update({
-      seasons: firebase.firestore.FieldValue.arrayUnion(...newSeasonsArr),
-      number_of_seasons: firebase.firestore.FieldValue.increment(seasonCount),
-      number_of_episodes: firebase.firestore.FieldValue.increment(seasonCount * epCount),
+  try {
+    // Fetch current document to merge seasons correctly
+    const doc = await firestore.collection('communityShows').doc(communityId).get();
+    const current = doc.data() || {};
+    const existingSeasons = current.seasons || [];
+    
+    // Build new seasons, offsetting from existing
+    let nextSeasonNum = existingSeasons.length + 1;
+    const newSeasonsArr = [];
+    for (let i = 0; i < seasonCount; i++) {
+      newSeasonsArr.push({ seasonNumber: nextSeasonNum + i, episodeCount: epCount, name: `Season ${nextSeasonNum + i}` });
+    }
+    
+    // Merge and deduplicate by seasonNumber
+    const merged = [...existingSeasons, ...newSeasonsArr];
+    const seen = new Set();
+    const deduped = merged.filter(s => { const k = s.seasonNumber; if (seen.has(k)) return false; seen.add(k); return true; });
+    
+    await doc.ref.update({
+      seasons: deduped,
+      number_of_seasons: deduped.length,
+      number_of_episodes: deduped.reduce((a, s) => a + (s.episodeCount || 0), 0),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(() => {
-      toast('Update submitted! Refresh to see changes.', '📝');
-    }).catch(e => {
-      toast('Could not submit update. Try again later.', '⚠️');
     });
-  } else {
-    toast('Community database not configured. Set up Firebase to share updates.', '⚠️');
+    toast('Update submitted! Refresh to see changes.', '📝');
+  } catch(e) {
+    toast('Could not submit update. Try again later.', '⚠️');
   }
 }
 
