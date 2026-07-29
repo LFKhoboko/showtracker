@@ -567,7 +567,6 @@ if (firebaseReady) {
       updateAuthUI();
       if (user) {
         // On login, merge local data into cloud
-        syncLocalToCloud();
         loadCloudData();
       }
     });
