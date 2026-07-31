@@ -15,8 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='30' fill='%236c5ce7'/%3E%3Ctext x='90' y='120' font-size='90' text-anchor='middle' fill='white'%3E▶%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-startup-image" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect width='1125' height='2436' fill='%230f0f1a'/%3E%3Ctext x='562' y='1218' font-size='60' text-anchor='middle' fill='%23a29bfe' font-family='sans-serif'%3EShowTracker%3C/text%3E%3C/svg%3E">
-  media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+<link rel="apple-touch-startup-image" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect width='1125' height='2436' fill='%230f0f1a'/%3E%3Ctext x='562' y='1218' font-size='60' text-anchor='middle' fill='%23a29bfe' font-family='sans-serif'%3EShowTracker%3C/text%3E%3C/svg%3E" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
 <title>ShowTracker — Your TV Companion</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -106,13 +105,17 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
 .stat-card{background:var(--surface);border-radius:10px;padding:12px;text-align:center;border:1px solid var(--border)}
 .stat-card .stat-value{font-size:22px;font-weight:700;color:var(--primary-light)}
 .stat-card .stat-label{font-size:11px;color:var(--text3);margin-top:2px}
-.season-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface);border-radius:10px;cursor:pointer;transition:all .2s;border:1px solid var(--border);margin-top:8px;font-family:inherit;color:var(--text);width:100%;text-align:left;font-size:14px;font-weight:600}
+.season-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface);border-radius:10px;cursor:pointer;transition:all .2s;border:1px solid var(--border);margin-top:8px;font-family:inherit;color:var(--text);width:100%;text-align:left;font-size:14px;font-weight:600;flex-wrap:wrap}
 .season-header:hover{background:var(--card-hover)}
 .season-header .season-toggle{font-size:12px;transition:transform .3s;color:var(--text3)}
 .season-header .season-toggle.open{transform:rotate(90deg)}
 .season-header .season-progress{flex:1;height:4px;background:var(--progress-bg);border-radius:2px;max-width:120px;overflow:hidden}
 .season-header .season-progress .bar{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
 .season-header .season-count{font-size:12px;color:var(--text3);margin-left:auto}
+.season-mark{margin-left:8px;padding:4px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;flex-shrink:0;white-space:nowrap}
+.season-mark:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.season-mark.done{background:rgba(0,184,148,.12);color:var(--success);border-color:rgba(0,184,148,.35)}
+.season-mark.done:hover{background:var(--error);color:#fff;border-color:var(--error)}
 .episode-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:all .2s;border:1px solid transparent;margin-left:12px}
 .episode-item:hover{background:var(--surface);border-color:var(--border)}
 .episode-item .ep-number{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--progress-bg);color:var(--text3);flex-shrink:0;transition:all .3s}
@@ -430,7 +433,10 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
       </div>
       <div class="detail-overview" id="detailOverview"></div>
       <div class="detail-stats" id="detailStats"></div>
-      <h3 style="font-size:16px;font-weight:600;margin-bottom:4px">📋 Episodes</h3>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <h3 style="font-size:16px;font-weight:600;flex:1">📋 Episodes</h3>
+        <button class="btn btn-sm btn-primary" id="markAllBtn" style="display:none" title="Mark every episode in every season as watched">✓ Mark All</button>
+      </div>
       <div id="episodeContainer"></div>
     </div>
   </div>
@@ -1054,10 +1060,15 @@ function addCustomShow() {
 // ============================================================
 // EPISODES
 // ============================================================
+// Cache of fetched TMDB season data per show — avoids refetching and
+// flashing the episode list after every watch toggle
+let seasonCache = {};
+
 function toggleEpisode(showId, seasonNum, epNum) {
   const key = `${seasonNum}-${epNum}`;
   const eps = state.episodes[showId] || {};
-  if (eps[key]) delete eps[key];
+  const wasWatched = !!eps[key];
+  if (wasWatched) delete eps[key];
   else eps[key] = { watched:true, date:new Date().toISOString().slice(0,10) };
   state.episodes[showId] = eps;
   if (state.shows[showId]) {
@@ -1066,10 +1077,136 @@ function toggleEpisode(showId, seasonNum, epNum) {
     state.shows[showId].progress = total > 0 ? Math.round((watched/total)*100) : 0;
     state.shows[showId].lastEpisodeWatched = key;
     if (total > 0 && watched >= total) state.shows[showId].status = STATUSES.COMPLETED;
+    else if (wasWatched && state.shows[showId].status === STATUSES.COMPLETED) state.shows[showId].status = STATUSES.WATCHING;
   }
   saveState();
-  if (currentDetailId === showId) renderEpisodeList(showId);
-  renderHome(); updateBadge();
+  if (currentDetailId === showId) {
+    if (state.shows[showId]?.custom) renderCustomEpisodeList(showId);
+    else renderEpisodeList(showId);
+  }
+  renderHome(); updateBadge(); updateDetailStats(showId);
+}
+
+// Toggle all episodes in a season as watched/unwatched
+// eps: array of episode numbers (TMDB) OR a count (custom shows)
+function toggleSeasonWatched(showId, seasonNum, eps) {
+  const stateEps = state.episodes[showId] || {};
+  const numbers = Array.isArray(eps)
+    ? eps.map(e => typeof e === 'object' ? e.episode_number : e)
+    : Array.from({length: eps}, (_, i) => i + 1);
+  if (!numbers.length) return;
+
+  const allWatched = numbers.every(n => !!stateEps[`${seasonNum}-${n}`]);
+  numbers.forEach(n => {
+    const key = `${seasonNum}-${n}`;
+    if (allWatched) delete stateEps[key];
+    else stateEps[key] = { watched:true, date:new Date().toISOString().slice(0,10) };
+  });
+  state.episodes[showId] = stateEps;
+
+  if (state.shows[showId]) {
+    const total = state.shows[showId].number_of_episodes || 0;
+    const watched = Object.keys(stateEps).length;
+    state.shows[showId].progress = total > 0 ? Math.round((watched/total)*100) : 0;
+    if (!allWatched) state.shows[showId].lastEpisodeWatched = `${seasonNum}-${numbers[numbers.length-1]}`;
+    if (total > 0 && watched >= total) state.shows[showId].status = STATUSES.COMPLETED;
+    else if (allWatched && state.shows[showId].status === STATUSES.COMPLETED) state.shows[showId].status = STATUSES.WATCHING;
+  }
+  saveState();
+  if (currentDetailId === showId) {
+    if (state.shows[showId]?.custom) renderCustomEpisodeList(showId);
+    else renderEpisodeList(showId);
+  }
+  renderHome(); updateBadge(); updateDetailStats(showId);
+  toast(allWatched ? `Season ${seasonNum} unmarked` : `Season ${seasonNum} marked as watched`, allWatched ? '↩' : '✅');
+}
+
+// Mark or unmark every season of a show in one tap
+async function toggleAllSeasons(showId) {
+  const show = state.shows[showId];
+  if (!show) return;
+
+  // Collect every (season, episode) pair across all seasons
+  const pairs = [];
+  if (show.customSeasons) {
+    show.customSeasons.forEach((season, si) => {
+      const seasonNum = season.seasonNumber || (si + 1);
+      const epCount = season.episodeCount || 10;
+      for (let ei = 1; ei <= epCount; ei++) pairs.push([seasonNum, ei]);
+    });
+  } else {
+    const numSeasons = show.number_of_seasons || 1;
+    const tmdbId = show.tmdbId;
+    let results = seasonCache[showId];
+    if (!results) {
+      const seasonTasks = [];
+      for (let s = 1; s <= numSeasons; s++) seasonTasks.push(tmdbFetch(`/tv/${tmdbId}/season/${s}`));
+      results = await Promise.all(seasonTasks);
+    }
+    results.forEach((data, i) => {
+      if (data && data.episodes) data.episodes.forEach(ep => pairs.push([i + 1, ep.episode_number]));
+    });
+    if (!seasonCache[showId] && pairs.length) seasonCache[showId] = results;
+  }
+  if (!pairs.length) { toast("Couldn't load episode data", '⚠️'); return; }
+
+  const stateEps = state.episodes[showId] || {};
+  const allWatched = pairs.every(([s, n]) => !!stateEps[`${s}-${n}`]);
+  pairs.forEach(([s, n]) => {
+    const key = `${s}-${n}`;
+    if (allWatched) delete stateEps[key];
+    else stateEps[key] = { watched:true, date:new Date().toISOString().slice(0,10) };
+  });
+  state.episodes[showId] = stateEps;
+
+  if (state.shows[showId]) {
+    const total = state.shows[showId].number_of_episodes || 0;
+    const watched = Object.keys(stateEps).length;
+    state.shows[showId].progress = total > 0 ? Math.round((watched/total)*100) : 0;
+    if (!allWatched) state.shows[showId].lastEpisodeWatched = pairs[pairs.length-1].join('-');
+    if (total > 0 && watched >= total) state.shows[showId].status = STATUSES.COMPLETED;
+    else if (allWatched && state.shows[showId].status === STATUSES.COMPLETED) state.shows[showId].status = STATUSES.WATCHING;
+  }
+  saveState();
+  if (currentDetailId === showId) {
+    if (state.shows[showId]?.custom) renderCustomEpisodeList(showId);
+    else renderEpisodeList(showId);
+  }
+  renderHome(); updateBadge(); updateDetailStats(showId);
+  toast(allWatched ? 'All seasons unmarked' : 'All seasons marked as watched', allWatched ? '↩' : '✅');
+}
+
+// Keep the "Mark All Seasons" button in sync with the tracked show's state
+function updateMarkAllButton(showId) {
+  const btn = document.getElementById('markAllBtn');
+  if (!btn) return;
+  const show = state.shows[showId];
+  const total = show?.number_of_episodes || 0;
+  if (!show || !total) { btn.style.display = 'none'; return; }
+  const watched = Object.keys(state.episodes[showId] || {}).length;
+  const allDone = watched >= total;
+  btn.style.display = '';
+  btn.textContent = allDone ? '✓ All Watched' : '✓ Mark All';
+  btn.title = allDone ? 'All seasons watched — click to unmark' : 'Mark every episode in every season as watched';
+  btn.className = `btn btn-sm ${allDone ? 'btn-secondary' : 'btn-primary'}`;
+  btn.onclick = () => toggleAllSeasons(showId);
+}
+
+// Refresh the Progress / Episodes Watched stat cards on the detail page
+function updateDetailStats(showId) {
+  const show = state.shows[showId];
+  if (!show) return;
+  const stats = document.getElementById('detailStats');
+  if (!stats) return;
+  const watched = Object.keys(state.episodes[showId] || {}).length;
+  const cards = stats.querySelectorAll('.stat-card .stat-value');
+  if (cards[0]) cards[0].textContent = `${show.progress||0}%`;
+  if (cards[1]) cards[1].textContent = watched;
+  const trackBtn = document.getElementById('detailTrackBtn');
+  if (trackBtn && show.status) {
+    const labels = {watching:'Watching',plan:'Plan to Watch',completed:'Completed',hold:'On Hold'};
+    trackBtn.textContent = `✓ ${labels[show.status]||'Tracking'}`;
+  }
 }
 
 // ============================================================
@@ -1756,24 +1893,40 @@ async function showDetail(tmdbIdOrHero) {
 async function renderEpisodeList(showId) {
   const container = document.getElementById('episodeContainer');
   const show = state.shows[showId];
-  if (!show) { container.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">Add this show to track episodes</div>'; return; }
+  if (!show) { container.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">Add this show to track episodes</div>'; updateMarkAllButton(showId); return; }
 
   const numSeasons = show.number_of_seasons || 1;
   const tmdbId = show.tmdbId;
-  container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">Loading episodes...</div>';
 
-  // Fetch all seasons in parallel
-  const seasonPromises = [];
-  for (let s = 1; s <= numSeasons; s++) {
-    seasonPromises.push(tmdbFetch(`/tv/${tmdbId}/season/${s}`));
+  // Remember which seasons the user had expanded so re-renders don't collapse them
+  const openSeasons = new Set();
+  container.querySelectorAll('.season-header[data-season]').forEach(h => {
+    if (h.nextElementSibling && h.nextElementSibling.classList.contains('open')) openSeasons.add(h.dataset.season);
+  });
+
+  // Use cached season data when available — no refetch or loading flash after toggles
+  let seasonResults;
+  if (seasonCache[showId]) {
+    seasonResults = seasonCache[showId];
+  } else {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">Loading episodes...</div>';
+    updateMarkAllButton(showId);
+    const seasonPromises = [];
+    for (let s = 1; s <= numSeasons; s++) {
+      seasonPromises.push(tmdbFetch(`/tv/${tmdbId}/season/${s}`));
+    }
+    seasonResults = await Promise.all(seasonPromises);
   }
-  const seasonResults = await Promise.all(seasonPromises);
   
   // Check if all seasons failed
   if (!seasonResults.some(r => r && r.episodes)) {
     container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">Failed to load episodes. Check your connection.</div>';
+    const mab = document.getElementById('markAllBtn'); if (mab) mab.style.display = 'none';
+    delete seasonCache[showId];
     return;
   }
+  // Only cache successful loads so a transient failure can retry
+  if (!seasonCache[showId]) seasonCache[showId] = seasonResults;
 
   let html = '';
   seasonResults.forEach((data, i) => {
@@ -1802,14 +1955,30 @@ async function renderEpisodeList(showId) {
     });
     const pct = eps.length ? Math.round((watchedInSeason/eps.length)*100) : 0;
     const sLabel = data.name&&data.name!==`Season ${s}` ? `Season ${s}: ${data.name}` : `Season ${s}`;
-    html += `<div class="season-header" onclick="toggleSeason(this)">
+    const seasonDone = eps.length > 0 && watchedInSeason === eps.length;
+    const epNums = eps.map(e=>e.episode_number).join(',');
+    const seasonMarkBtn = eps.length ? `<button class="season-mark ${seasonDone?'done':''}" title="${seasonDone?'Season fully watched — click to unmark':'Mark all episodes in this season as watched'}" onclick="event.stopPropagation();toggleSeasonWatched('${showId}',${s},[${epNums}])">${seasonDone?'✓ Watched':'✓ Season'}</button>` : '';
+    html += `<div class="season-header" data-season="${s}" onclick="toggleSeason(this)">
       <span class="season-toggle">▶</span><span>${sLabel}</span>
       <div class="season-progress"><div class="bar" style="width:${pct}%"></div></div>
       <span class="season-count">${watchedInSeason}/${eps.length}</span>
+      ${seasonMarkBtn}
     </div>
     <div class="season-episodes">${epItems}</div>`;
   });
   container.innerHTML = html;
+  // Re-expand seasons the user had opened before the re-render
+  openSeasons.forEach(sNum => {
+    const header = container.querySelector(`.season-header[data-season="${sNum}"]`);
+    if (!header) return;
+    const epDiv = header.nextElementSibling;
+    if (!epDiv) return;
+    epDiv.classList.add('open');
+    const toggle = header.querySelector('.season-toggle');
+    if (toggle) toggle.classList.add('open');
+    epDiv.querySelectorAll('.ep-item-hidden').forEach(el => el.style.display = 'flex');
+  });
+  updateMarkAllButton(showId);
 }
 
 function toggleSeason(header) {
@@ -1830,6 +1999,7 @@ function renderCustomEpisodeList(showId) {
   const show = state.shows[showId];
   if (!show || !show.customSeasons) {
     container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">No episode data available.</div>';
+    const mab = document.getElementById('markAllBtn'); if (mab) mab.style.display = 'none';
     return;
   }
   
@@ -1853,14 +2023,17 @@ function renderCustomEpisodeList(showId) {
       </div>`;
     }
     const seasonProgress = Math.round((watchedInSeason / epCount) * 100);
-    return `<div class="season-header" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.season-toggle').classList.toggle('open')">
+    const seasonDone = watchedInSeason === epCount;
+    return `<div class="season-header" data-season="${seasonNum}" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.season-toggle').classList.toggle('open')">
       <span class="season-toggle">▶</span>
       <span>Season ${seasonNum}</span>
       <div class="season-progress"><div class="bar" style="width:${seasonProgress}%"></div></div>
       <span class="season-count">${watchedInSeason}/${epCount}</span>
+      <button class="season-mark ${seasonDone?'done':''}" title="${seasonDone?'Season fully watched — click to unmark':'Mark all episodes in this season as watched'}" onclick="event.stopPropagation();toggleSeasonWatched('${showId}',${seasonNum},${epCount})">${seasonDone?'✓ Watched':'✓ Season'}</button>
     </div>
     <div class="season-episodes open">${epHtml}</div>`;
   }).join('');
+  updateMarkAllButton(showId);
 }
 
 async function toggleTracking() {
