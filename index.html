@@ -902,6 +902,22 @@ async function tmdbFetch(path) {
   } catch(e) { return null; }
 }
 function posterUrl(path, size='w185') { return path ? `${IMG_BASE}/${size}${path}` : ''; }
+// Generate an attractive SVG title-card cover for shows TMDB has no image for
+function genCover(name) {
+  const n = (name || 'TV').trim();
+  const h = [...n].reduce((a,c)=>a+c.charCodeAt(0),0) % 360;
+  const initials = n.split(/\s+/).filter(w=>/^[A-Za-z0-9]/.test(w)).slice(0,2).map(w=>w[0].toUpperCase()).join('') || 'TV';
+  const safe = n.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="185" height="278" viewBox="0 0 185 278"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${h},65%,45%)"/><stop offset="1" stop-color="hsl(${(h+70)%360},70%,30%)"/></linearGradient></defs><rect width="185" height="278" fill="url(#g)"/><circle cx="140" cy="30" r="80" fill="rgba(255,255,255,.08)"/><circle cx="20" cy="240" r="70" fill="rgba(255,255,255,.08)"/><text x="92" y="130" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="#fff" text-anchor="middle">${initials}</text><text x="92" y="252" font-family="Arial, sans-serif" font-size="13" fill="rgba(255,255,255,.92)" text-anchor="middle">${safe.slice(0,30)}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+function genBackdrop(name) {
+  const n = (name || 'TV').trim();
+  const h = [...n].reduce((a,c)=>a+c.charCodeAt(0),0) % 360;
+  const safe = n.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="780" height="438" viewBox="0 0 780 438"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${h},60%,38%)"/><stop offset="1" stop-color="hsl(${(h+60)%360},70%,22%)"/></linearGradient></defs><rect width="780" height="438" fill="url(#g)"/><circle cx="620" cy="60" r="260" fill="rgba(255,255,255,.07)"/><circle cx="80" cy="400" r="220" fill="rgba(255,255,255,.07)"/><text x="390" y="205" font-family="Arial, sans-serif" font-size="58" font-weight="bold" fill="rgba(255,255,255,.95)" text-anchor="middle">${safe.slice(0,34)}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 function backdropUrl(path) { return path ? `${IMG_BASE}/w780${path}` : ''; }
 
 // ============================================================
@@ -915,7 +931,7 @@ async function loadTrending() {
 function renderTrending() {
   const scroll = document.getElementById('trendingScroll');
   scroll.innerHTML = allTrending.slice(0,20).map(s => {
-    const p = posterUrl(s.poster_path);
+    const p = posterUrl(s.poster_path) || genCover(s.name);
     return `<div class="trending-item" onclick="showDetail('${s.id}')">
       ${p ? `<img class="trend-poster" src="${p}" alt="${s.name}" loading="lazy">` : `<div class="trend-poster" style="display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--text3)">📺</div>`}
       <div class="trend-info"><div class="trend-title">${s.name}</div>
@@ -962,6 +978,35 @@ async function addHeroShow() {
 let saShows = [];
 let saExpanded = false;
 
+// Built-in SA shows that aren't on TMDB at all — powered by the custom-show engine
+const SA_BUILTINS = [
+  {
+    id: 'custom_builtin_emzini_wezinto',
+    name: 'Emzini Wezinto',
+    year: '1992',
+    vote_average: 8.2,
+    overview: 'Legendary South African sitcom set in a bustling Johannesburg township boarding house, following the lives, loves and squabbles of its residents and their larger-than-life landlord Mr Twala. A beloved SABC TV classic.',
+    seasons: [13, 13, 13, 13]
+  }
+];
+
+function ensureBuiltinShow(id) {
+  if (state.shows[id]) return;
+  const b = SA_BUILTINS.find(x => x.id === id);
+  if (!b) return;
+  const seasons = b.seasons.map((epCount, i) => ({ seasonNumber: i + 1, episodeCount: epCount, name: `Season ${i + 1}` }));
+  const totalEps = seasons.reduce((a, s) => a + s.episodeCount, 0);
+  state.shows[id] = {
+    custom: true, builtin: true, name: b.name, poster_path: null, first_air_date: b.year + '-01-01',
+    genres: ['Custom'], genre_ids: [], overview: b.overview, vote_average: b.vote_average || 0,
+    number_of_seasons: seasons.length, number_of_episodes: totalEps, customSeasons: seasons,
+    status: STATUSES.WATCHING, dateAdded: Date.now(), lastUpdated: Date.now(), progress: 0, lastEpisodeWatched: null
+  };
+  if (!state.episodes[id]) state.episodes[id] = {};
+  saveState();
+  updateBadge();
+}
+
 async function loadSA() {
   const scroll = document.getElementById('saScroll');
   if (!scroll) return;
@@ -974,6 +1019,20 @@ async function loadSA() {
     data.results.forEach(s => { if (!seen.has(s.id)) { seen.add(s.id); saShows.push(s); } });
     if (data.results.length < 20) break;
   }
+  // Add notable SA shows TMDB's discover may miss (e.g. The Four of Us — no images on TMDB)
+  const extraIds = [327273]; // The Four of Us
+  for (const id of extraIds) {
+    if (seen.has(id)) continue;
+    const s = await tmdbFetch(`/tv/${id}`);
+    if (s && s.id) { seen.add(s.id); saShows.push(s); }
+  }
+  // Built-in SA shows not on TMDB (e.g. Emzini Wezinto) — tracked via custom-show engine
+  for (const b of SA_BUILTINS) {
+    if (seen.has(b.id)) continue;
+    seen.add(b.id);
+    saShows.push({ id: b.id, name: b.name, first_air_date: b.year + '-01-01', poster_path: null,
+      vote_average: b.vote_average || 0, origin_country: ['ZA'], builtin: true });
+  }
   renderSA();
 }
 function renderSA() {
@@ -982,7 +1041,7 @@ function renderSA() {
   const list = saShows.slice(0, saExpanded ? saShows.length : 20);
   if (!list.length) { scroll.innerHTML = '<div class="ra-loading"><span>No South African shows found.</span></div>'; return; }
   scroll.innerHTML = list.map(s => {
-    const p = posterUrl(s.poster_path);
+    const p = posterUrl(s.poster_path) || genCover(s.name);
     return `<div class="trending-item" onclick="showDetail('${s.id}')">
       ${p?`<img class="trend-poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="trend-poster" style="display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--text3)">🇿🇦</div>`}
       <div class="trend-info"><div class="trend-title">${s.name}</div>
@@ -1364,7 +1423,7 @@ function renderRecentlyAired() {
   updateHomeBadge(newCount);
   
   scroll.innerHTML = raCache.map(ep => {
-    const p = posterUrl(ep.poster, 'w92');
+    const p = posterUrl(ep.poster, 'w92') || genCover(ep.showName);
     const daysAgo = Math.floor((new Date() - ep.airDateObj) / (1000*60*60*24));
     const dateStr = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
     const seen = ep.alreadyWatched || ep.seenKey && state.seenAired?.[ep.seenKey];
@@ -1420,7 +1479,7 @@ function renderHome() {
   if (watching.length) {
     contSection.style.display='block';
     contScroll.innerHTML = watching.map(([id,s]) => {
-      const p = posterUrl(s.poster_path);
+      const p = posterUrl(s.poster_path) || genCover(s.name);
       const lastEp = s.lastEpisodeWatched ? `S${s.lastEpisodeWatched.split('-')[0]}E${s.lastEpisodeWatched.split('-')[1]}` : '';
       const totalEps = s.number_of_episodes||'?';
       const wc = Object.keys(state.episodes[id]||{}).length;
@@ -1439,7 +1498,7 @@ function renderHome() {
     grid.innerHTML = shows.map(([id,s]) => {
       const isCustom = s.custom;
       const clickId = isCustom ? id : s.tmdbId;
-      const p = posterUrl(s.poster_path);
+      const p = posterUrl(s.poster_path) || genCover(s.name);
       return `<div class="show-card" onclick="showDetail('${clickId}')">
         ${isCustom
           ? `<div class="poster-placeholder" style="background:linear-gradient(135deg,var(--primary),var(--accent));font-size:28px;color:#fff">${s.name.charAt(0).toUpperCase()}</div>`
@@ -1485,9 +1544,7 @@ function renderMyShows() {
     return `<div class="show-card" onclick="showDetail('${clickId}')">
       ${isCustom
         ? `<div class="poster-placeholder" style="background:linear-gradient(135deg,var(--primary),var(--accent));font-size:32px;color:#fff">${s.name.charAt(0).toUpperCase()}</div>`
-        : (posterUrl(s.poster_path)
-          ? `<img class="poster" src="${posterUrl(s.poster_path)}" alt="${s.name}" loading="lazy">`
-          : `<div class="poster-placeholder">📺</div>`)}
+        : `<img class="poster" src="${posterUrl(s.poster_path) || genCover(s.name)}" alt="${s.name}" loading="lazy">`}
       <div class="actions" onclick="event.stopPropagation()">
         <button class="action-btn" onclick="showStatusMenu('${id}')" title="Change status">↻</button>
         <button class="action-btn" onclick="removeShow('${id}')" title="Remove">✕</button>
@@ -1523,13 +1580,19 @@ function clearSearch() {
 async function performSearch(query) {
   const results = document.getElementById('searchResults');
   results.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">🔍 Searching...</div>';
+  // Built-in SA shows not on TMDB (e.g. Emzini Wezinto)
+  const q = query.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+  const builtinHits = SA_BUILTINS.filter(b => {
+    const n = b.name.toLowerCase().replace(/[^a-z0-9 ]/g, '');
+    return n.includes(q);
+  });
   // Fetch from both TMDB and community database in parallel
   const [tmdbData, communityResults] = await Promise.all([
     tmdbFetch(`/search/tv?query=${encodeURIComponent(query)}&page=1`),
     searchCommunityShows(query)
   ]);
   
-  if ((!tmdbData||!tmdbData.results) && (!communityResults || !communityResults.length)) {
+  if ((!tmdbData||!tmdbData.results) && (!communityResults || !communityResults.length) && !builtinHits.length) {
     results.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3)">No shows found. Try a different search!</div>';
     return;
   }
@@ -1542,7 +1605,7 @@ async function performSearch(query) {
       tmdbData.results.slice(0,15).map(s => {
         const id = generateShowId(s.id);
         const added = !!state.shows[id];
-        const p = posterUrl(s.poster_path, 'w92');
+        const p = posterUrl(s.poster_path, 'w92') || genCover(s.name);
         return `<div class="search-result-item">
           ${p?`<img class="sr-poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="sr-poster" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text3)">📺</div>`}
           <div class="sr-info" onclick="showDetail('${s.id}')">
@@ -1550,6 +1613,22 @@ async function performSearch(query) {
             <div class="sr-meta">${s.first_air_date?.slice(0,4)||'?'} · ⭐ ${s.vote_average?.toFixed(1)||'?'}</div>
           </div>
           <button class="sr-add ${added?'added':''}" data-id="${id}" onclick="quickAddShow(${s.id}, '${s.name.replace(/'/g,"\\'")}', '${s.poster_path||''}', '${s.first_air_date?.slice(0,4)||''}')">${added?'✓':'+'}</button>
+        </div>`;
+      }).join('');
+  }
+  
+  // Built-in SA classics (not on TMDB)
+  if (builtinHits.length) {
+    html += `<div class="search-section-title" style="margin-top:12px">🇿🇦 South African Classics</div>` +
+      builtinHits.map(b => {
+        const added = !!state.shows[b.id];
+        return `<div class="search-result-item">
+          <div class="sr-poster" style="display:flex;align-items:center;justify-content:center;font-size:20px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:6px;color:#fff">🇿🇦</div>
+          <div class="sr-info" onclick="showDetail('${b.id}')">
+            <div class="sr-title">${b.name} <span style="font-size:10px;color:var(--accent);font-weight:600">SA Classic</span></div>
+            <div class="sr-meta">${b.year} · ${b.seasons.length} Seasons</div>
+          </div>
+          <button class="sr-add ${added?'added':''}" onclick="showDetail('${b.id}'); this.textContent='✓'; this.className='sr-add added'">${added?'✓':'+'}</button>
         </div>`;
       }).join('');
   }
@@ -1591,7 +1670,7 @@ async function renderPopular() {
   grid.innerHTML = data.results.slice(0,12).map(s => {
     const id = generateShowId(s.id);
     const added = !!state.shows[id];
-    const p = posterUrl(s.poster_path);
+    const p = posterUrl(s.poster_path) || genCover(s.name);
     return `<div class="show-card" onclick="showDetail('${s.id}')">
       ${p?`<img class="poster" src="${p}" alt="${s.name}" loading="lazy">`:`<div class="poster-placeholder">📺</div>`}
       <div class="actions" onclick="event.stopPropagation()">
@@ -1746,7 +1825,7 @@ function renderRecommendations() {
   
   container.innerHTML = `<div class="shows-grid">` + recCache.map(r => {
     const added = alreadyOwned.has(r.id);
-    const p = posterUrl(r.poster_path);
+    const p = posterUrl(r.poster_path) || genCover(r.name);
     return `<div class="rec-card" id="rec-${r.id}">
       ${p ? `<img class="rec-poster" src="${p}" alt="${r.name}" loading="lazy" onclick="showDetail('${r.id}')" style="cursor:pointer">` : `<div class="rec-poster" style="display:flex;align-items:center;justify-content:center;font-size:40px;color:var(--text3)">📺</div>`}
       <div class="rec-info" onclick="showDetail('${r.id}')" style="cursor:pointer">
@@ -1861,16 +1940,18 @@ async function showDetail(tmdbIdOrHero) {
   
   if (isCustom) {
     currentDetailId = tmdbIdOrHero;
+    if (!state.shows[tmdbIdOrHero] && tmdbIdOrHero.startsWith('custom_builtin_')) ensureBuiltinShow(tmdbIdOrHero);
     const show = state.shows[tmdbIdOrHero];
     if (!show) { document.getElementById('detailTitle').textContent = 'Show not found'; toast('Show not found','⚠️'); return; }
     
     document.getElementById('detailBackdropImg').style.display = 'none';
     document.getElementById('detailTitle').textContent = show.name;
     document.getElementById('detailMeta').innerHTML = `
-      <span style="color:var(--accent)">Custom Show</span>
+      <span style="color:var(--accent)">${show.builtin ? '🇿🇦 SA Classic' : 'Custom Show'}</span>
+      <span>${show.first_air_date?.slice(0,4)||''}</span>
       <span>${show.number_of_seasons||0} Seasons</span>
       <span>${show.number_of_episodes||0} Episodes</span>`;
-    document.getElementById('detailOverview').textContent = `Track your progress for ${show.name}. Mark episodes as you watch them!`;
+    document.getElementById('detailOverview').textContent = show.overview || `Track your progress for ${show.name}. Mark episodes as you watch them!`;
     
     const trackBtn = document.getElementById('detailTrackBtn');
     trackBtn.textContent = '✓ Tracking'; trackBtn.className='btn btn-secondary';
@@ -1909,7 +1990,7 @@ async function showDetail(tmdbIdOrHero) {
   currentDetailData = data;
 
   const dbImg = document.getElementById('detailBackdropImg');
-  if (data.backdrop_path) { dbImg.src = backdropUrl(data.backdrop_path); dbImg.style.display='block'; } else dbImg.style.display='none';
+  if (data.backdrop_path) { dbImg.src = backdropUrl(data.backdrop_path); dbImg.style.display='block'; } else { dbImg.src = genBackdrop(data.name); dbImg.style.display='block'; }
   document.getElementById('detailTitle').textContent = data.name;
   document.getElementById('detailMeta').innerHTML = `
     <span>${data.first_air_date?.slice(0,4)||'N/A'}</span>
