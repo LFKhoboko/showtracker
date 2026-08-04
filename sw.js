@@ -1,7 +1,7 @@
 // ShowTracker Service Worker — Cache-first offline strategy
 // Dynamic base path: works at root (/), subpath (/showtracker/), or any deployment URL
 
-const CACHE = 'showtracker-v14';
+const CACHE = 'showtracker-v18';
 const SW_PATH = self.location.pathname;
 const BASE = SW_PATH.substring(0, SW_PATH.lastIndexOf('/') + 1);
 
@@ -13,12 +13,17 @@ const ASSETS = [
   BASE + 'icons/icon-512.svg'
 ];
 
-// Install: pre-cache core assets
+// Install: pre-cache core assets — each individually so one missing file
+// can't fail the whole install
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE).then(cache => {
-      return cache.addAll(ASSETS);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE).then(cache =>
+      Promise.all(
+        ASSETS.map(url =>
+          fetch(url).then(res => { if (res.ok) cache.put(url, res); }).catch(() => {})
+        )
+      )
+    ).then(() => self.skipWaiting())
   );
 });
 
@@ -37,11 +42,19 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // SPA navigation: always serve index.html for any navigation request
-  // This ensures deep links work in PWA standalone mode
+  // SPA navigation: network-first with cache fallback so new deploys
+  // (updated index.html) show up without bumping the cache version
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match(BASE + 'index.html').then(cached => cached || fetch(event.request))
+      fetch(event.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(cache => cache.put(BASE + 'index.html', clone));
+          return res;
+        })
+        .catch(() =>
+          caches.match(BASE + 'index.html').then(cached => cached || caches.match('./'))
+        )
     );
     return;
   }
