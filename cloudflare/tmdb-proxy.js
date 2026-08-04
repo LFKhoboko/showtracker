@@ -2,7 +2,7 @@
 // Deployed as a Cloudflare Worker. The client calls this worker and the
 // api_key is injected here, so it never ships in the app bundle.
 // (Service-worker / classic format for raw API upload.)
-var TMDB_API_KEY = '9e4395bb379b7ae27a8bf50a732892c8';
+// TMDB_API_KEY is provided by the "TMDB_API_KEY" Worker secret binding.
 var TMDB_BASE = 'https://api.themoviedb.org/3';
 
 // Origins allowed to read responses (CORS). 'null' covers file:// testing.
