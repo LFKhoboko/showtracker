@@ -288,7 +288,7 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
       <span class="nav-badge" id="recBadge">0</span>
     </button>
     <button class="nav-item" data-page="calendar" onclick="navigate('calendar')"><span class="nav-icon">📅</span>Calendar</button>
-    <button class="nav-item" data-page="stats" onclick="navigate('stats')"><span class="nav-icon">📊</span>Stats</button>
+    <button class="nav-item" data-page="stats" id="statsBtn" onclick="openStats()"><span class="nav-icon" id="statsIcon">🔒</span>Stats</button>
     <button class="nav-item" id="authBtn" onclick="openAuthModal()" title="Sign in to sync across devices" style="font-size:9px"><span class="nav-icon" id="authIcon">👤</span><span id="authLabel">Sign In</span></button>
   </nav>
 
@@ -491,10 +491,11 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
     <div id="authLoggedIn" style="display:none;text-align:center;padding:10px">
       <p style="font-size:16px;margin-bottom:4px">✅ Signed in</p>
       <p id="authUserEmail" style="font-size:13px;color:var(--text2);margin-bottom:12px"></p>
+      <button class="btn btn-primary" onclick="goToStatsFromAuth()" style="justify-content:center;width:100%;margin-bottom:8px">📊 View My Stats</button>
       <button class="btn btn-secondary" onclick="signOutUser()">Sign Out</button>
     </div>
     <div class="modal-actions" style="margin-top:8px">
-      <button class="btn btn-secondary" onclick="closeAuthModal()" style="flex:0;width:100%">Close</button>
+      <button class="btn btn-secondary" onclick="cancelAuthModal()" style="flex:0;width:100%">Close</button>
     </div>
   </div>
 </div>
@@ -536,6 +537,7 @@ const DEFAULT_DATA = { shows:{}, episodes:{}, ratings:{}, customShows:[], dismis
 
 let state = loadState();
 let currentPage = 'home';
+let pendingStats = false;
 
 // ============================================================
 // FIREBASE — Community Custom Shows Database
@@ -577,8 +579,12 @@ if (firebaseReady) {
       currentUser = user;
       updateAuthUI();
       if (user) {
-        // On login, merge local data into cloud
-        loadCloudData();
+        // On login, merge local data into cloud, then land on Stats if it was locked
+        loadCloudData().then(() => {
+          if (pendingStats) { pendingStats = false; navigate('stats'); }
+        });
+      } else if (currentPage === 'stats') {
+        navigate('home');
       }
     });
   } catch(e) {
@@ -591,14 +597,17 @@ function updateAuthUI() {
   const btn = document.getElementById('authBtn');
   const icon = document.getElementById('authIcon');
   const label = document.getElementById('authLabel');
+  const statsIcon = document.getElementById('statsIcon');
   if (currentUser) {
     icon.textContent = '🔐';
     label.textContent = currentUser.email?.split('@')[0] || 'User';
     btn.title = 'Signed in — tap for account options';
+    if (statsIcon) statsIcon.textContent = '📊';
   } else {
     icon.textContent = '👤';
     label.textContent = 'Sign In';
     btn.title = 'Sign in to sync across devices';
+    if (statsIcon) statsIcon.textContent = '🔒';
   }
 }
 
@@ -617,9 +626,24 @@ function openAuthModal() {
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
     document.getElementById('authError').style.display = 'none';
+    document.getElementById('authModalSub').textContent = pendingStats
+      ? 'Sign in to unlock your personal stats.'
+      : 'Sign in to sync your shows across devices.';
   }
 }
 function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
+function cancelAuthModal() { pendingStats = false; closeAuthModal(); }
+
+// Stats requires sign-in: if not signed in, prompt for auth first
+function openStats() {
+  if (currentUser) { navigate('stats'); return; }
+  pendingStats = true;
+  openAuthModal();
+}
+function goToStatsFromAuth() {
+  closeAuthModal();
+  navigate('stats');
+}
 
 let authMode = 'signin';
 function toggleAuthMode() {
@@ -675,6 +699,7 @@ function signOutUser() {
     auth.signOut();
     toast('Signed out. Your data is still saved locally.', '👋');
     closeAuthModal();
+    if (currentPage === 'stats') navigate('home');
   }
 }
 
@@ -2426,6 +2451,17 @@ function changeMonth(delta) { calendarDate.setMonth(calendarDate.getMonth()+delt
 // ============================================================
 function renderStats() {
   const overview = document.getElementById('statsOverview');
+  if (!currentUser) {
+    overview.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-icon">🔐</div>
+        <h3>Stats are locked</h3>
+        <p>Sign in to see your watching stats — episodes watched, completion, and genre breakdown.</p>
+        <button class="btn btn-primary" onclick="pendingStats=true;openAuthModal()">🔐 Sign In to View Stats</button>
+      </div>`;
+    document.getElementById('genreStats').innerHTML = '';
+    return;
+  }
   const shows = Object.values(state.shows);
   const totalShows = shows.length;
   const totalWatched = Object.keys(state.episodes).reduce((sum,id)=>sum+Object.keys(state.episodes[id]||{}).length,0);
