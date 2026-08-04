@@ -1,7 +1,7 @@
 // ShowTracker Service Worker — Cache-first offline strategy
 // Dynamic base path: works at root (/), subpath (/showtracker/), or any deployment URL
 
-const CACHE = 'showtracker-v18';
+const CACHE = 'showtracker-v19';
 const SW_PATH = self.location.pathname;
 const BASE = SW_PATH.substring(0, SW_PATH.lastIndexOf('/') + 1);
 
@@ -59,8 +59,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // TMDB API: network-first with cache fallback
-  if (url.hostname === 'api.themoviedb.org') {
+  // TMDB API (via Cloudflare Worker proxy): network-first with cache fallback
+  if (url.hostname === 'tmdb-proxy.lfkhoboko.workers.dev') {
     event.respondWith(
       fetch(event.request)
         .then(res => {

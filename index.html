@@ -527,8 +527,7 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
 // ============================================================
 // STATE
 // ============================================================
-const TMDB_KEY = '9e4395bb379b7ae27a8bf50a732892c8';
-const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_BASE = 'https://tmdb-proxy.lfkhoboko.workers.dev';
 const IMG_BASE = 'https://image.tmdb.org/t/p';
 const STORAGE_KEY = 'showtracker_data';
 const TRENDING_KEY = 'showtracker_trending';
@@ -911,7 +910,7 @@ function navigate(page) {
 // ============================================================
 async function tmdbFetch(path) {
   try {
-    const r = await fetch(`${TMDB_BASE}${path}${path.includes('?')?'&':'?'}api_key=${TMDB_KEY}`);
+    const r = await fetch(`${TMDB_BASE}${path}`);
     if (!r.ok) return null;
     const data = await r.json();
     // TMDB returns success:false with status 200 for invalid keys — treat as error
