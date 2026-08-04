@@ -1,7 +1,7 @@
 // ShowTracker Service Worker — Cache-first offline strategy
 // Dynamic base path: works at root (/), subpath (/showtracker/), or any deployment URL
 
-const CACHE = 'showtracker-v11';
+const CACHE = 'showtracker-v12';
 const SW_PATH = self.location.pathname;
 const BASE = SW_PATH.substring(0, SW_PATH.lastIndexOf('/') + 1);
 
