@@ -10,10 +10,11 @@
 <meta name="theme-color" content="#0f0f1a">
 <meta name="application-name" content="ShowTracker">
 <link rel="manifest" href="manifest.json">
-<!-- Firebase SDK for community custom shows database + user accounts -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<!-- Preconnect: shave connection latency for the TMDB proxy + images -->
+<link rel="preconnect" href="https://tmdb-proxy.lfkhoboko.workers.dev" crossorigin>
+<link rel="preconnect" href="https://image.tmdb.org">
+<!-- Firebase SDK (community shows DB + accounts) is injected lazily by
+     loadFirebaseSDK() below, only when real keys are configured. -->
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="apple-touch-startup-image" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1125 2436'%3E%3Crect width='1125' height='2436' fill='%230f0f1a'/%3E%3Ctext x='562' y='1218' font-size='60' text-anchor='middle' fill='%23a29bfe' font-family='sans-serif'%3EShowTracker%3C/text%3E%3C/svg%3E" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
 <title>ShowTracker — Your TV Companion</title>
@@ -595,20 +596,30 @@ let auth = null;
 let currentUser = null;
 let firebaseReady = false;
 
-try {
-  if (typeof firebase !== 'undefined' && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY') {
+// Load the Firebase SDK lazily — only when real keys are configured. This keeps
+// ~500KB of SDK out of the critical path for installs without accounts enabled.
+function loadFirebaseSDK() {
+  const scripts = [
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'
+  ];
+  let loaded = 0;
+  scripts.forEach(src => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = s.onerror = () => { loaded++; if (loaded === scripts.length) initFirebase(); };
+    document.head.appendChild(s);
+  });
+}
+
+function initFirebase() {
+  try {
+    if (typeof firebase === 'undefined' || FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') return;
     firebase.initializeApp(FIREBASE_CONFIG);
     firestore = firebase.firestore();
     firebaseReady = true;
     console.log('🔥 Firebase connected — community shows enabled');
-  }
-} catch(e) {
-  console.log('📡 Community shows: Firebase not configured (optional)');
-}
-
-// Initialize Firebase Auth
-if (firebaseReady) {
-  try {
     auth = firebase.auth();
     auth.onAuthStateChanged(user => {
       currentUser = user;
@@ -621,9 +632,11 @@ if (firebaseReady) {
       }
     });
   } catch(e) {
-    console.log('📡 Auth not available');
+    console.log('📡 Community shows: Firebase not configured (optional)');
   }
 }
+
+if (FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY') loadFirebaseSDK();
 
 // Update the nav auth button based on login state
 function updateAuthUI() {

@@ -1,0 +1,12 @@
+{
+  "name": "showtracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ShowTracker — your personal TV companion PWA",
+  "scripts": {
+    "minify": "node scripts/minify.mjs"
+  },
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0"
+  }
+}

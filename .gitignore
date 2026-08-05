@@ -29,3 +29,6 @@ desktop.ini
 
 # Logs
 *.log
+
+# Dependencies (installed in CI only, never deployed)
+node_modules/
