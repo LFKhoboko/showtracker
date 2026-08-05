@@ -184,6 +184,30 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
 .filter-pill{padding:6px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
 .filter-pill:hover{background:var(--surface);color:var(--text)}
 .filter-pill.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+/* MY SHOWS VIEW TOGGLE + DETAILED LIST */
+.view-toggle{display:flex;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px;flex-shrink:0}
+.view-btn{border:none;border-radius:7px;background:transparent;color:var(--text3);font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:inherit;padding:5px 10px;white-space:nowrap}
+.view-btn:hover{color:var(--text);background:var(--card-hover)}
+.view-btn.active{background:var(--primary);color:#fff}
+.ms-list{display:flex;flex-direction:column;gap:10px}
+.ms-row{display:flex;gap:12px;padding:10px 12px;border-radius:12px;background:var(--card);border:1px solid var(--border);cursor:pointer;transition:all .25s;align-items:center}
+.ms-row:hover{background:var(--card-hover);transform:translateX(3px)}
+.ms-row .ms-poster{width:46px;height:69px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--surface2)}
+.ms-row .ms-main{flex:1;min-width:0}
+.ms-row .ms-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-row .ms-sub{font-size:11px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ms-chip{display:inline-flex;padding:1px 8px;border-radius:8px;font-size:10px;font-weight:600;background:var(--surface)}
+.ms-chip.watching{background:rgba(108,92,231,.15);color:var(--primary-light)}
+.ms-chip.plan{background:rgba(253,121,168,.14);color:var(--accent)}
+.ms-chip.completed{background:rgba(0,184,148,.14);color:var(--success)}
+.ms-chip.hold{background:rgba(253,203,110,.14);color:var(--warning)}
+.ms-progress{height:4px;background:var(--progress-bg);border-radius:2px;margin-top:6px;overflow:hidden}
+.ms-progress .bar{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.ms-meta{font-size:11px;color:var(--text3);margin-top:4px}
+.ms-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.ms-actions .action-btn{width:30px;height:30px;border:none;border-radius:50%;background:var(--surface);color:var(--text3);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);transition:all .2s;font-family:inherit}
+.ms-actions .action-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary);transform:scale(1.08)}
+@media(max-width:480px){.ms-row .ms-poster{width:42px;height:63px}}
 .search-results{position:relative;margin-top:8px}
 .search-section-title{font-size:13px;font-weight:600;color:var(--text3);margin:16px 0 8px;padding:0 4px}
 .search-result-item{display:flex;gap:12px;padding:10px 14px;border-radius:12px;cursor:pointer;transition:all .2s;align-items:center}
@@ -260,6 +284,10 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
 .ra-section-header .ra-tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .ra-loading{display:flex;align-items:center;gap:8px;padding:12px 16px;color:var(--text3);font-size:12px}
 .ra-loading .mini-spinner{width:14px;height:14px;border:2px solid var(--progress-bg);border-top-color:var(--primary);border-radius:50%;animation:recSpin .8s linear infinite;flex-shrink:0}
+/* UPCOMING */
+.up-when{display:inline-flex;align-items:center;padding:1px 8px;border-radius:10px;background:rgba(0,206,209,.12);color:var(--accent2);font-size:10px;font-weight:700;white-space:nowrap}
+.up-when.up-soon{background:rgba(253,121,168,.16);color:var(--accent);animation:newPulse 2s ease-in-out infinite}
+.up-card .ra-date{gap:8px}
 </style>
 <!-- PWA: splash screen overlay while service worker loads -->
 <style>
@@ -288,7 +316,6 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
       <span class="nav-badge" id="recBadge">0</span>
     </button>
     <button class="nav-item" data-page="calendar" onclick="navigate('calendar')"><span class="nav-icon">📅</span>Calendar</button>
-    <button class="nav-item" data-page="stats" id="statsBtn" onclick="openStats()"><span class="nav-icon" id="statsIcon">🔒</span>Stats</button>
     <button class="nav-item" id="authBtn" onclick="openAuthModal()" title="Sign in to sync across devices" style="font-size:9px"><span class="nav-icon" id="authIcon">👤</span><span id="authLabel">Sign In</span></button>
   </nav>
 
@@ -324,6 +351,10 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
       <div class="section-header"><h2>▶️ Continue Watching</h2></div>
       <div class="h-scroll" id="continueScroll"></div>
     </div>
+    <div class="section" id="upcomingSection">
+      <div class="section-header"><h2>📅 Coming Up</h2><div class="header-sub" style="font-size:12px;color:var(--text3)">Next episode air dates for shows you're watching</div></div>
+      <div class="h-scroll" id="upcomingScroll"><div class="ra-loading"><div class="mini-spinner"></div><span>Checking air dates...</span></div></div>
+    </div>
     <div class="section" id="recentlyAiredSection">
       <div class="section-header">
         <h2>📡 Recently Aired</h2>
@@ -334,15 +365,20 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
       </div>
       <div class="h-scroll" id="recentlyAiredScroll"><div class="ra-loading"><div class="mini-spinner"></div><span>Checking for new episodes...</span></div></div>
     </div>
-    <div class="section">
-      <div class="section-header"><h2>📺 My Shows</h2><button class="see-all" onclick="navigate('mylist')">See all</button></div>
-      <div class="shows-grid" id="myShowsPreview"></div>
-    </div>
   </div>
 
   <!-- MY SHOWS -->
   <div class="page" id="page-mylist">
-    <div class="page-header"><h1>📺 My Shows</h1><div class="header-sub">Track everything you're watching</div></div>
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <h1>📺 My Shows</h1>
+        <div class="header-sub">Track everything you're watching</div>
+      </div>
+      <div class="view-toggle" id="viewToggle">
+        <button class="view-btn active" data-view="grid" onclick="setMyShowsView('grid')" title="Grid view">▦ Grid</button>
+        <button class="view-btn" data-view="list" onclick="setMyShowsView('list')" title="Detailed list view">☰ List</button>
+      </div>
+    </div>
     <div class="filter-bar" id="mylistFilters">
       <button class="filter-pill active" data-filter="all" onclick="filterMyShows('all')">All</button>
       <button class="filter-pill" data-filter="watching" onclick="filterMyShows('watching')">Watching</button>
@@ -393,13 +429,7 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
     </div>
   </div>
 
-  <!-- STATS -->
-  <div class="page" id="page-stats">
-    <div class="page-header"><h1>📊 My Stats</h1><div class="header-sub">Your watching journey at a glance</div></div>
-    <div class="stats-overview" id="statsOverview"></div>
-    <div class="card"><div class="card-body"><h3 style="margin-bottom:10px;font-size:16px">🎭 Genre Distribution</h3><div id="genreStats"></div></div></div>
-  </div>
-
+  <!-- STATS lives inside the sign-in/account modal after login -->
   <!-- RECOMMENDATIONS -->
   <div class="page" id="page-recommendations">
     <div class="page-header">
@@ -488,11 +518,17 @@ nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav-bg);backdrop-fil
       <div style="display:flex;align-items:center;gap:10px;margin:4px 0"><hr style="flex:1;border:none;border-top:1px solid var(--border)"><span style="font-size:11px;color:var(--text3)">or</span><hr style="flex:1;border:none;border-top:1px solid var(--border)"></div>
       <button class="btn btn-secondary" onclick="signInWithGoogle()" style="justify-content:center">🔵 Sign in with Google</button>
     </div>
-    <div id="authLoggedIn" style="display:none;text-align:center;padding:10px">
-      <p style="font-size:16px;margin-bottom:4px">✅ Signed in</p>
-      <p id="authUserEmail" style="font-size:13px;color:var(--text2);margin-bottom:12px"></p>
-      <button class="btn btn-primary" onclick="goToStatsFromAuth()" style="justify-content:center;width:100%;margin-bottom:8px">📊 View My Stats</button>
-      <button class="btn btn-secondary" onclick="signOutUser()">Sign Out</button>
+    <div id="authLoggedIn" style="display:none;padding:4px 0 10px">
+      <div style="text-align:center;margin-bottom:14px">
+        <p style="font-size:16px;margin-bottom:4px">✅ Signed in</p>
+        <p id="authUserEmail" style="font-size:13px;color:var(--text2)"></p>
+      </div>
+      <div style="text-align:left">
+        <div class="stats-overview" id="statsOverview" style="margin-bottom:14px"></div>
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:8px">🎭 Genre Distribution</h3>
+        <div id="genreStats" style="margin-bottom:16px"></div>
+      </div>
+      <button class="btn btn-secondary" onclick="signOutUser()" style="justify-content:center;width:100%">Sign Out</button>
     </div>
     <div class="modal-actions" style="margin-top:8px">
       <button class="btn btn-secondary" onclick="cancelAuthModal()" style="flex:0;width:100%">Close</button>
@@ -537,7 +573,6 @@ const DEFAULT_DATA = { shows:{}, episodes:{}, ratings:{}, customShows:[], dismis
 
 let state = loadState();
 let currentPage = 'home';
-let pendingStats = false;
 
 // ============================================================
 // FIREBASE — Community Custom Shows Database
@@ -579,12 +614,10 @@ if (firebaseReady) {
       currentUser = user;
       updateAuthUI();
       if (user) {
-        // On login, merge local data into cloud, then land on Stats if it was locked
+        // On login, merge cloud data, then show fresh stats in the account modal (if open)
         loadCloudData().then(() => {
-          if (pendingStats) { pendingStats = false; navigate('stats'); }
+          if (document.getElementById('authModal').classList.contains('open')) openAuthModal();
         });
-      } else if (currentPage === 'stats') {
-        navigate('home');
       }
     });
   } catch(e) {
@@ -597,21 +630,18 @@ function updateAuthUI() {
   const btn = document.getElementById('authBtn');
   const icon = document.getElementById('authIcon');
   const label = document.getElementById('authLabel');
-  const statsIcon = document.getElementById('statsIcon');
   if (currentUser) {
     icon.textContent = '🔐';
     label.textContent = currentUser.email?.split('@')[0] || 'User';
-    btn.title = 'Signed in — tap for account options';
-    if (statsIcon) statsIcon.textContent = '📊';
+    btn.title = 'Signed in — tap for your stats & account';
   } else {
     icon.textContent = '👤';
     label.textContent = 'Sign In';
     btn.title = 'Sign in to sync across devices';
-    if (statsIcon) statsIcon.textContent = '🔒';
   }
 }
 
-// Auth modal
+// Auth modal — shows sign-in form, or the user's stats once signed in
 function openAuthModal() {
   document.getElementById('authModal').classList.add('open');
   const loggedIn = document.getElementById('authLoggedIn');
@@ -620,34 +650,27 @@ function openAuthModal() {
     authForm.style.display = 'none';
     loggedIn.style.display = 'block';
     document.getElementById('authUserEmail').textContent = currentUser.email;
+    document.getElementById('authModalTitle').textContent = '📊 My Stats';
+    document.getElementById('authModalSub').style.display = 'none';
+    renderStats();
   } else {
     authForm.style.display = 'flex';
     loggedIn.style.display = 'none';
+    document.getElementById('authModalTitle').textContent = '🔐 Sign In';
+    document.getElementById('authModalSub').style.display = '';
     document.getElementById('authEmail').value = '';
     document.getElementById('authPassword').value = '';
     document.getElementById('authError').style.display = 'none';
-    document.getElementById('authModalSub').textContent = pendingStats
-      ? 'Sign in to unlock your personal stats.'
-      : 'Sign in to sync your shows across devices.';
+    document.getElementById('authModalSub').textContent = 'Sign in to sync your shows across devices.';
   }
 }
 function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
-function cancelAuthModal() { pendingStats = false; closeAuthModal(); }
-
-// Stats requires sign-in: if not signed in, prompt for auth first
-function openStats() {
-  if (currentUser) { navigate('stats'); return; }
-  pendingStats = true;
-  openAuthModal();
-}
-function goToStatsFromAuth() {
-  closeAuthModal();
-  navigate('stats');
-}
+function cancelAuthModal() { closeAuthModal(); }
 
 let authMode = 'signin';
 function toggleAuthMode() {
   authMode = authMode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('authModalSub').style.display = '';
   document.getElementById('authModalTitle').textContent = authMode === 'signin' ? '🔐 Sign In' : '🔐 Create Account';
   document.getElementById('authModalSub').textContent = authMode === 'signin' ? 'Sign in to sync your shows across devices.' : 'Create an account to save your data in the cloud.';
   document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
@@ -674,7 +697,8 @@ async function handleAuth() {
       await auth.createUserWithEmailAndPassword(email, password);
       toast('Account created and signed in!', '🎉');
     }
-    closeAuthModal();
+    // Stay in the modal so the user lands straight on their stats
+    openAuthModal();
   } catch(e) {
     showAuthError(e.message);
   }
@@ -688,7 +712,7 @@ async function signInWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithPopup(provider);
     toast('Signed in with Google!', '🔐');
-    closeAuthModal();
+    openAuthModal();
   } catch(e) {
     showAuthError(e.message);
   }
@@ -699,7 +723,6 @@ function signOutUser() {
     auth.signOut();
     toast('Signed out. Your data is still saved locally.', '👋');
     closeAuthModal();
-    if (currentPage === 'stats') navigate('home');
   }
 }
 
@@ -865,6 +888,7 @@ let searchTimeout = null;
 let searchSeq = 0;
 let allTrending = [];
 let myShowsFilter = 'all';
+let myShowsView = (() => { try { return localStorage.getItem('showtracker_myview') || 'grid'; } catch(e) { return 'grid'; } })();
 
 // ============================================================
 // STORAGE
@@ -925,7 +949,6 @@ function navigate(page) {
   if (page === 'mylist') renderMyShows();
   if (page === 'search') { renderPopular(); document.getElementById('searchInput').focus(); }
   if (page === 'calendar') renderCalendar();
-  if (page === 'stats') renderStats();
   if (page === 'recommendations') renderRecommendations();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -965,6 +988,13 @@ function genBackdrop(name) {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 function backdropUrl(path) { return path ? `${IMG_BASE}/w780${path}` : ''; }
+// Parse a TMDB date-only string (YYYY-MM-DD) as LOCAL midnight so air-date
+// filtering/labels are correct in every timezone (new Date(str) is UTC).
+function dateOnly(str) {
+  const m = String(str || '').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3]);
+}
 
 // ============================================================
 // TRENDING
@@ -1148,14 +1178,15 @@ function addShowToState(show) {
     status:state.shows[id]?.status||STATUSES.WATCHING, dateAdded:state.shows[id]?.dateAdded||Date.now(),
     lastUpdated:Date.now(), progress:state.shows[id]?.progress||0, lastEpisodeWatched:state.shows[id]?.lastEpisodeWatched||null };
   if (!state.episodes[id]) state.episodes[id] = {};
+  upCache = null; upSeq++; // next-to-air changed — refetch on next home render
   saveState(); updateBadge();
 }
 function addToMyShows(d) {
   const id = d.id; state.shows[id] = {...state.shows[id],...d, status:state.shows[id]?.status||STATUSES.WATCHING, dateAdded:state.shows[id]?.dateAdded||Date.now(), lastUpdated:Date.now()};
-  if (!state.episodes[id]) state.episodes[id] = {}; saveState(); updateBadge();
+  if (!state.episodes[id]) state.episodes[id] = {}; upCache = null; upSeq++; saveState(); updateBadge();
 }
-function removeShow(id) { delete state.shows[id]; delete state.episodes[id]; saveState(); updateBadge(); toast('Removed','🗑️'); renderMyShows(); }
-function updateShowStatus(id, status) { if (state.shows[id]) { state.shows[id].status=status; state.shows[id].lastUpdated=Date.now(); saveState(); updateBadge(); renderMyShows(); } }
+function removeShow(id) { delete state.shows[id]; delete state.episodes[id]; saveState(); updateBadge(); toast('Removed','🗑️'); upCache = null; upSeq++; renderMyShows(); renderHome(); }
+function updateShowStatus(id, status) { if (state.shows[id]) { state.shows[id].status=status; state.shows[id].lastUpdated=Date.now(); saveState(); updateBadge(); upCache = null; upSeq++; renderMyShows(); } }
 function updateBadge() { const c=Object.keys(state.shows).length; const b=document.getElementById('myListBadge'); b.textContent=c; b.classList.toggle('show',c>0); }
 // Recompute a show's progress % from tracked episodes, clamped to 0–100.
 // Marks COMPLETED when every episode is watched; reverts to WATCHING otherwise.
@@ -1165,8 +1196,11 @@ function recomputeShowProgress(showId) {
   const total = show.number_of_episodes || 0;
   const watched = Object.keys(state.episodes[showId] || {}).length;
   show.progress = total > 0 ? Math.max(0, Math.min(100, Math.round((watched / total) * 100))) : 0;
+  const statusBefore = show.status;
   if (total > 0 && watched >= total) show.status = STATUSES.COMPLETED;
   else if (show.status === STATUSES.COMPLETED) show.status = STATUSES.WATCHING;
+  // A status flip changes which shows belong in the Coming Up feed — drop the cached list
+  if (show.status !== statusBefore) { upCache = null; upSeq++; }
 }
 
 // ============================================================
@@ -1555,6 +1589,105 @@ function updateHomeBadge(count) {
 }
 
 // ============================================================
+// UPCOMING EPISODES
+// ============================================================
+let upCache = null;
+let upFetchedAt = 0;
+let upLoading = false;
+let upSeq = 0; // bumped whenever tracked shows change — discards stale in-flight loads
+const UPCOMING_WINDOW_DAYS = 30;
+
+// Load the next-to-air episode for every tracked show (TMDB /tv/{id}
+// returns next_episode_to_air), then render them sorted by air date.
+async function loadUpcoming() {
+  if (upLoading) return;
+  upLoading = true;
+  const scroll = document.getElementById('upcomingScroll');
+  const section = document.getElementById('upcomingSection');
+  if (!scroll || !section) { upLoading = false; return; }
+
+  // Only shows currently being watched have a meaningful "next episode".
+  // Sort by last activity first so the 15-slot cap favors actively-watched shows.
+  const shows = Object.entries(state.shows)
+    .filter(([,s]) => s.status === STATUSES.WATCHING && s.tmdbId)
+    .sort((a, b) => (b[1].lastUpdated||0) - (a[1].lastUpdated||0))
+    .slice(0, 15);
+
+  if (!shows.length) {
+    section.style.display = 'none';
+    upCache = null;
+    upLoading = false;
+    return;
+  }
+  section.style.display = 'block';
+  if (!upCache) scroll.innerHTML = '<div class="ra-loading"><div class="mini-spinner"></div><span>Checking air dates...</span></div>';
+
+  const seq = upSeq;
+  const tasks = shows.map(([,s]) => () => tmdbFetch(`/tv/${s.tmdbId}`));
+  const results = await batchFetch(tasks, 5);
+  if (seq !== upSeq) { upLoading = false; return; } // shows changed mid-flight — discard
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const horizon = new Date(today); horizon.setDate(horizon.getDate() + UPCOMING_WINDOW_DAYS);
+
+  const items = [];
+  results.forEach((data, i) => {
+    if (!data || !data.next_episode_to_air || !data.next_episode_to_air.air_date) return;
+    const [showId, show] = shows[i];
+    const next = data.next_episode_to_air;
+    const airDate = dateOnly(next.air_date);
+    if (!airDate || airDate < today || airDate > horizon) return;
+    items.push({
+      showId, tmdbId: show.tmdbId, showName: show.name, poster: show.poster_path,
+      season: next.season_number, epNum: next.episode_number,
+      epName: next.name || `Episode ${next.episode_number}`,
+      airDate
+    });
+  });
+
+  // If every request failed (proxy/network hiccup), don't cache the empty
+  // result — leave the section as-is and let the next home render retry
+  if (!results.some(r => r)) {
+    upCache = null;
+    upFetchedAt = 0;
+    upLoading = false;
+    return;
+  }
+
+  items.sort((a, b) => a.airDate - b.airDate);
+  upCache = items;
+  upFetchedAt = Date.now();
+  upLoading = false;
+  renderUpcoming();
+}
+
+function renderUpcoming() {
+  const scroll = document.getElementById('upcomingScroll');
+  const section = document.getElementById('upcomingSection');
+  if (!scroll || !section) return;
+  if (!upCache || !upCache.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  const now = new Date(); now.setHours(0,0,0,0);
+  scroll.innerHTML = upCache.map(ep => {
+    const p = posterUrl(ep.poster, 'w92') || genCover(ep.showName);
+    const days = Math.round((ep.airDate - now) / 86400000);
+    const when = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`;
+    const dateStr = ep.airDate.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
+    return `<div class="ra-card up-card" onclick="showDetail('${ep.tmdbId}')">
+      ${p ? `<img class="ra-poster" src="${p}" alt="${escapeHtml(ep.showName)}" loading="lazy">` : `<div class="ra-poster" style="display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text3)">📺</div>`}
+      <div class="ra-info">
+        <div class="ra-title">${escapeHtml(ep.showName)}</div>
+        <div class="ra-ep">S${ep.season}E${ep.epNum} — ${escapeHtml(ep.epName)}</div>
+        <div class="ra-date"><span class="up-when ${days <= 1 ? 'up-soon' : ''}">${when}</span><span>${dateStr}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
 // RENDER: HOME
 // ============================================================
 function renderHome() {
@@ -1577,29 +1710,19 @@ function renderHome() {
     }).join('');
   } else contSection.style.display='none';
 
-  const grid = document.getElementById('myShowsPreview');
-  const shows = Object.entries(state.shows).slice(0,6);
-  if (shows.length) {
-    grid.innerHTML = shows.map(([id,s]) => {
-      const isCustom = s.custom;
-      const clickId = isCustom ? id : s.tmdbId;
-      const p = posterUrl(s.poster_path) || genCover(s.name);
-      return `<div class="show-card" onclick="showDetail('${clickId}')">
-        ${isCustom
-          ? `<div class="poster-placeholder" style="background:linear-gradient(135deg,var(--primary),var(--accent));font-size:28px;color:#fff">${escapeHtml(s.name.charAt(0).toUpperCase())}</div>`
-          : (p ? `<img class="poster" src="${p}" alt="${escapeHtml(s.name)}" loading="lazy">` : `<div class="poster-placeholder">📺</div>`)}
-        <div class="info"><div class="title">${escapeHtml(s.name)}</div><div class="meta"><span class="year">${isCustom?'Custom':(s.first_air_date||'').slice(0,4)}</span></div>
-        ${s.number_of_episodes>0?`<div class="progress"><div class="bar" style="width:${s.progress||0}%"></div></div>`:''}</div>
-      </div>`;
-    }).join('');
-  } else grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3)">Add your first show to get started!</div>`;
-  
   // Load recently aired — show cached data immediately if available
   if (raCache) {
     renderRecentlyAired();
     loadRecentlyAired(); // silent background refresh
   } else {
     loadRecentlyAired(); // shows loading spinner (first load)
+  }
+
+  // Load upcoming episodes — cache for an hour so re-renders stay cheap
+  if (upCache && Date.now() - upFetchedAt < 60*60*1000) {
+    renderUpcoming();
+  } else {
+    loadUpcoming();
   }
 }
 
@@ -1618,27 +1741,71 @@ function renderMyShows() {
   let shows = Object.entries(state.shows);
   if (myShowsFilter !== 'all') shows = shows.filter(([_,s]) => s.status === myShowsFilter);
   shows.sort((a,b) => { if(a[1].status===STATUSES.WATCHING&&b[1].status!==STATUSES.WATCHING) return -1; if(a[1].status!==STATUSES.WATCHING&&b[1].status===STATUSES.WATCHING) return 1; return b[1].lastUpdated - a[1].lastUpdated; });
+  // Keep the toggle and container in sync with the chosen view (even when empty)
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === myShowsView));
+  grid.className = myShowsView === 'list' ? 'ms-list' : 'shows-grid';
   if (!shows.length) { grid.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
-  grid.innerHTML = shows.map(([id,s]) => {
-    const isCustom = s.custom;
-    const clickId = isCustom ? id : s.tmdbId;
-    const wc = Object.keys(state.episodes[id]||{}).length;
-    const total = s.number_of_episodes||'?';
-    const sl = {watching:'Watching',plan:'Plan to Watch',completed:'Completed',hold:'On Hold'};
-    return `<div class="show-card" onclick="showDetail('${clickId}')">
-      ${isCustom
-        ? `<div class="poster-placeholder" style="background:linear-gradient(135deg,var(--primary),var(--accent));font-size:32px;color:#fff">${escapeHtml(s.name.charAt(0).toUpperCase())}</div>`
-        : `<img class="poster" src="${posterUrl(s.poster_path) || genCover(s.name)}" alt="${escapeHtml(s.name)}" loading="lazy">`}
-      <div class="actions" onclick="event.stopPropagation()">
-        <button class="action-btn" onclick="showStatusMenu('${id}')" title="Change status">↻</button>
-        <button class="action-btn" onclick="removeShow('${id}')" title="Remove">✕</button>
+  grid.innerHTML = myShowsView === 'list'
+    ? shows.map(([id,s]) => myShowsRow(id,s)).join('')
+    : shows.map(([id,s]) => myShowsCard(id,s)).join('');
+}
+// Grid card for My Shows
+function myShowsCard(id, s) {
+  const isCustom = s.custom;
+  const clickId = isCustom ? id : s.tmdbId;
+  const wc = Object.keys(state.episodes[id]||{}).length;
+  const total = s.number_of_episodes||'?';
+  const sl = {watching:'Watching',plan:'Plan to Watch',completed:'Completed',hold:'On Hold'};
+  return `<div class="show-card" onclick="showDetail('${clickId}')">
+    ${isCustom
+      ? `<div class="poster-placeholder" style="background:linear-gradient(135deg,var(--primary),var(--accent));font-size:32px;color:#fff">${escapeHtml(s.name.charAt(0).toUpperCase())}</div>`
+      : `<img class="poster" src="${posterUrl(s.poster_path) || genCover(s.name)}" alt="${escapeHtml(s.name)}" loading="lazy">`}
+    <div class="actions" onclick="event.stopPropagation()">
+      <button class="action-btn" onclick="showStatusMenu('${id}')" title="Change status">↻</button>
+      <button class="action-btn" onclick="removeShow('${id}')" title="Remove">✕</button>
+    </div>
+    <div class="info"><div class="title">${escapeHtml(s.name)}</div>
+    <div class="meta">${isCustom?'<span class="year" style="color:var(--accent)">Custom</span>':`<span class="year">${(s.first_air_date||'').slice(0,4)}</span>`}<span style="color:var(--text3)">·</span><span style="color:var(--primary-light);font-size:10px">${sl[s.status]||'Watching'}</span></div>
+    ${total!=='?'&&total>0?`<div class="progress"><div class="bar" style="width:${s.progress||0}%"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px">${wc}/${total}</div>`:''}</div>
+  </div>`;
+}
+// Detailed list row for My Shows
+function myShowsRow(id, s) {
+  const isCustom = s.custom;
+  const clickId = isCustom ? id : s.tmdbId;
+  const wc = Object.keys(state.episodes[id]||{}).length;
+  const total = s.number_of_episodes||'?';
+  const sl = {watching:'Watching',plan:'Plan to Watch',completed:'Completed',hold:'On Hold'};
+  const status = s.status||STATUSES.WATCHING;
+  const rating = state.ratings?.[id];
+  const lastEp = s.lastEpisodeWatched ? `S${s.lastEpisodeWatched.split('-')[0]}E${s.lastEpisodeWatched.split('-')[1]}` : null;
+  const poster = isCustom ? '' : posterUrl(s.poster_path, 'w92');
+  return `<div class="ms-row" onclick="showDetail('${clickId}')">
+    ${poster
+      ? `<img class="ms-poster" src="${poster}" alt="${escapeHtml(s.name)}" loading="lazy">`
+      : `<div class="ms-poster" style="display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;background:linear-gradient(135deg,var(--primary),var(--accent))">${escapeHtml(s.name.charAt(0).toUpperCase())}</div>`}
+    <div class="ms-main">
+      <div class="ms-title">${escapeHtml(s.name)}</div>
+      <div class="ms-sub">
+        <span class="ms-chip ${status}">${sl[status]||'Watching'}</span>
+        <span>${isCustom?'Custom':(s.first_air_date||'').slice(0,4)||''}</span>
+        ${rating?`<span style="color:var(--rating)">⭐ ${rating}/10</span>`:''}
       </div>
-      <div class="info"><div class="title">${escapeHtml(s.name)}</div>
-      <div class="meta">${isCustom?'<span class="year" style="color:var(--accent)">Custom</span>':`<span class="year">${(s.first_air_date||'').slice(0,4)}</span>`}<span style="color:var(--text3)">·</span><span style="color:var(--primary-light);font-size:10px">${sl[s.status]||'Watching'}</span></div>
-      ${total!=='?'&&total>0?`<div class="progress"><div class="bar" style="width:${s.progress||0}%"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px">${wc}/${total}</div>`:''}</div>
-    </div>`;
-  }).join('');
+      ${total!=='?'&&total>0?`<div class="ms-progress"><div class="bar" style="width:${s.progress||0}%"></div></div>`:''}
+      <div class="ms-meta">${wc}/${total} episodes watched${lastEp?` · last watched ${lastEp}`:''}</div>
+    </div>
+    <div class="ms-actions" onclick="event.stopPropagation()">
+      <button class="action-btn" onclick="showStatusMenu('${id}')" title="Change status">↻</button>
+      <button class="action-btn" onclick="removeShow('${id}')" title="Remove">✕</button>
+    </div>
+  </div>`;
+}
+// Switch between grid and detailed list view (preference is remembered)
+function setMyShowsView(view) {
+  myShowsView = view;
+  try { localStorage.setItem('showtracker_myview', view); } catch(e) {}
+  renderMyShows();
 }
 function showStatusMenu(id) {
   const order = [STATUSES.WATCHING, STATUSES.PLAN, STATUSES.HOLD, STATUSES.COMPLETED];
@@ -2299,6 +2466,7 @@ async function toggleTracking() {
     const current = state.shows[id].status||STATUSES.WATCHING;
     const next = order[(order.indexOf(current)+1)%order.length];
     state.shows[id].status = next; state.shows[id].lastUpdated = Date.now(); saveState(); updateBadge();
+    upCache = null; upSeq++; // status changed — Coming Up feed must refresh
     const labels = {watching:'Watching',plan:'Plan to Watch',completed:'Completed',hold:'On Hold'};
     toast(`Status: ${labels[next]}`, '↻');
     // Update detail UI without re-fetching
@@ -2449,19 +2617,9 @@ function changeMonth(delta) { calendarDate.setMonth(calendarDate.getMonth()+delt
 // ============================================================
 // STATS
 // ============================================================
+// Renders into the sign-in/account modal (shown only when signed in)
 function renderStats() {
   const overview = document.getElementById('statsOverview');
-  if (!currentUser) {
-    overview.innerHTML = `
-      <div class="empty-state" style="grid-column:1/-1">
-        <div class="empty-icon">🔐</div>
-        <h3>Stats are locked</h3>
-        <p>Sign in to see your watching stats — episodes watched, completion, and genre breakdown.</p>
-        <button class="btn btn-primary" onclick="pendingStats=true;openAuthModal()">🔐 Sign In to View Stats</button>
-      </div>`;
-    document.getElementById('genreStats').innerHTML = '';
-    return;
-  }
   const shows = Object.values(state.shows);
   const totalShows = shows.length;
   const totalWatched = Object.keys(state.episodes).reduce((sum,id)=>sum+Object.keys(state.episodes[id]||{}).length,0);
