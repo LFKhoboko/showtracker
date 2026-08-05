@@ -1,7 +1,7 @@
 // ShowTracker Service Worker — Cache-first offline strategy
 // Dynamic base path: works at root (/), subpath (/showtracker/), or any deployment URL
 
-const CACHE = 'showtracker-v19';
+const CACHE = 'showtracker-v20';
 const SW_PATH = self.location.pathname;
 const BASE = SW_PATH.substring(0, SW_PATH.lastIndexOf('/') + 1);
 
@@ -43,10 +43,11 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // SPA navigation: network-first with cache fallback so new deploys
-  // (updated index.html) show up without bumping the cache version
+  // (updated index.html) show up. cache:'no-store' bypasses the browser's
+  // HTTP cache (GitHub Pages sends max-age=600) so we always fetch fresh.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-store' })
         .then(res => {
           const clone = res.clone();
           caches.open(CACHE).then(cache => cache.put(BASE + 'index.html', clone));

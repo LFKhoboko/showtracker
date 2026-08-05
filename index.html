@@ -2678,8 +2678,23 @@ init();
 if ('serviceWorker' in navigator) {
   // Dynamic scope: works at both root (/) and subpath (/showtracker/) deployments
   const swScope = (location.pathname.replace(/\/?$/, '/')).replace(/\/[^/]*$/, '/') || '/';
+  let refreshing = false;
+  // When a newer service worker takes control, reload once so the user
+  // immediately gets the latest deployed version instead of a stale shell
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    location.reload();
+  });
   navigator.serviceWorker.register('sw.js', { scope: swScope }).then(reg => {
-    // Service worker active
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        // skipWaiting() in the SW makes it activate immediately; reload once
+        if (nw.state === 'activated' && navigator.serviceWorker.controller) location.reload();
+      });
+    });
   }).catch(err => {
     // Service worker registration failed — app still works without it
   });
